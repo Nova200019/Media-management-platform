@@ -9,18 +9,19 @@ This document specifies the functional, non-functional and technical requirement
 - Dashboard with list of all cameras
 - **Default view**
 - Description of cameras (Name, Type, Status, Recording duration)
-- Create and select different views
+- **Create and select different views**
 - **Add/Delete cameras to/from view**
 - Add/Delete cameras to/from system
 - Event Log
+- Share cameras with other users
 
 
 ## IP Cameras
 
 - Start/Stop cameras
-- See, play, download, delete footage of camera from storage
+- See, play, download, delete footage of camera from storage (Database)
 - Live Video streaming at up to 1080p/60fps, storage at 1FPS
-- Encoder Selection (Backend, Frontend?)
+- Encoder Selection
 - Playback controls fast forward, rewind, 
 - Change camera configuration
 
@@ -49,7 +50,10 @@ This document specifies the functional, non-functional and technical requirement
 # Technical Requirements
 
 ## Technology stack
-- NOT DECIDED YET
+- Backend: JavaScript, NodeJS
+- Frontend: React
+- Database user: MongoDB
+- Database cameras: MongoDB
 
 ## APIs
 - API to access and change camera configuration
