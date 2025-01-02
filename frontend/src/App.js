@@ -1,15 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import AddCameraForm from './components/AddCameraForm';
 import CameraConsole from './components/CameraConsole';
+import Hls from 'hls.js';
 
 const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:3000');
 
 function App() {
     const [cameras, setCameras] = useState([]);
+    const videoRefs = useRef({}); // Store references to video elements
+    const streamUrls = useRef({}); // Store stream URLs by cameraId
 
     useEffect(() => {
+        // Load existing cameras from backend on mount
         socket.emit('loadCameras', (loadedCameras) => setCameras(loadedCameras));
+
+        // Listen for streamReady socket event
+        socket.on('streamReady', ({ cameraId, streamUrl }) => {
+            console.log(`Stream ready for camera ${cameraId}: ${streamUrl}`);
+            streamUrls.current[cameraId] = streamUrl;
+            if (videoRefs.current[cameraId]) {
+                setupHlsPlayer(cameraId, streamUrl);
+            }
+        });
+
+        return () => {
+            socket.off('streamReady');
+        };
     }, []);
 
     const handleAddCamera = (camera) => {
@@ -19,29 +36,23 @@ function App() {
     };
 
     const handleStartStream = (cameraId) => {
-        socket.emit('startStream', { cameraId: cameraId.toString() }, async(response) => {
+        socket.emit('startStream', { cameraId: cameraId.toString() }, (response) => {
             if (response.success) {
-                console.log(`Stream started on port ${response.port}`);
-                const videoElement = document.getElementById(`video-${cameraId}`);
-                if (videoElement) {
-                    const stream = await getWebRTCStream(cameraId);
-                    videoElement.srcObject = stream;
-                    videoElement.play();
-                }
+                console.log(`Stream started for camera ${cameraId}`);
             } else {
                 console.error('Failed to start stream');
             }
-        }); // Handle the answer from the server
+        });
     };
 
     const handleStopStream = (cameraId) => {
         socket.emit('stopStream', { cameraId: cameraId.toString() }, (response) => {
             if (response.success) {
                 console.log('Stream stopped');
-                const videoElement = document.getElementById(`video-${cameraId}`);
+                const videoElement = videoRefs.current[cameraId];
                 if (videoElement) {
                     videoElement.pause();
-                    videoElement.srcObject = null;
+                    videoElement.src = '';
                 }
             } else {
                 console.error('Failed to stop stream');
@@ -52,11 +63,32 @@ function App() {
     const handleRecordStream = (cameraId) => {
         socket.emit('recordStream', { cameraId: cameraId.toString(), toggle: true }, (response) => {
             if (response.success) {
-                console.log(`Recording started, file path: ${response.filePath}`);
+                console.log(`Recording started for ${cameraId}`);
             } else {
                 console.error('Failed to start recording');
             }
         });
+    };
+
+    const setupHlsPlayer = (cameraId, streamUrl) => {
+        const videoElement = videoRefs.current[cameraId];
+
+        if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(streamUrl);
+            hls.attachMedia(videoElement);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                videoElement.play();
+            });
+            hls.on(Hls.Events.ERROR, (_, data) => {
+                console.error('HLS error:', data);
+            });
+        } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+            videoElement.src = streamUrl;
+            videoElement.addEventListener('loadedmetadata', () => {
+                videoElement.play();
+            });
+        }
     };
 
     return ( <
@@ -74,78 +106,20 @@ function App() {
                 onStop = { handleStopStream }
                 onRecord = { handleRecordStream }
                 /> <
-                video id = { `video-${camera._id}` }
+                video ref = {
+                    (el) => (videoRefs.current[camera._id] = el) }
+                id = { `video-${camera._id}` }
                 width = "640"
                 height = "480"
-                controls / >
+                controls /
+                >
                 <
                 /div>
             ))
         } <
-        /div> < /
-        div >
+        /div> <
+        /div>
     );
-}
-
-async function getWebRTCStream(cameraId) {
-    const peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
-
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            console.log('Sending ICE candidate:', event.candidate);
-            socket.emit('iceCandidate', { cameraId, candidate: event.candidate });
-        }
-    };
-
-    // Handle track event
-    peerConnection.ontrack = (event) => {
-        const videoElement = document.getElementById(`video-${cameraId}`);
-        if (videoElement) {
-            videoElement.srcObject = event.streams[0];
-        }
-    };
-
-    // Create an offer
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    // Wait for the local description to be set
-    await new Promise((resolve) => {
-        peerConnection.onicegatheringstatechange = (event) => {
-            if (peerConnection.iceGatheringState === 'complete') {
-                resolve();
-            }
-        };
-    });
-
-    // Print the SDP offer
-    console.log('SDP Offer:', peerConnection.localDescription.sdp);
-
-    // Send the offer to the server
-    console.log('Sending WebRTC offer:', peerConnection.localDescription);
-    socket.emit('webrtcOffer', { cameraId, offer: peerConnection.localDescription });
-
-    // Handle the answer from the server
-    socket.on('webrtcAnswer', async({ answer }) => {
-        console.log('Received WebRTC answer:', answer);
-        console.log('SDP Answer:', answer.sdp);
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    });
-
-    // Handle ICE candidates from the server
-    socket.on('iceCandidate', async({ candidate }) => {
-        try {
-            console.log('Received ICE candidate:', candidate);
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-            console.error('Error adding received ice candidate', e);
-        }
-    });
-
-    return peerConnection;
 }
 
 export default App;

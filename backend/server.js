@@ -3,9 +3,9 @@ const http = require('http');
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const logger = require('./logger');
-const { startWebRTCPipeline, startRecordingPipeline, stopPipeline } = require('./cameraManager');
-const mediasoup = require('mediasoup');
-const mediasoupConfig = require('./mediasoupConfig');
+const { startHLSPipeline, stopPipeline } = require('./cameraManager');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -19,131 +19,74 @@ const io = socketIo(server, {
 
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI || 'mongodb://mongo:27017/mediasoup';
-mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(mongoUri);
 const CameraSchema = new mongoose.Schema({ name: String, rtspUrl: String });
 const Camera = mongoose.model('Camera', CameraSchema);
 
-let worker;
-let router;
+const STREAM_VOLUME_PATH = process.env.STREAM_VOLUME_PATH || '/video-storage';
+const STREAM_BASE_URL = process.env.STREAM_BASE_URL || 'http://localhost:3000';
 
-(async() => {
-    worker = await mediasoup.createWorker(mediasoupConfig.worker);
-    router = await worker.createRouter({ mediaCodecs: mediasoupConfig.router.mediaCodecs });
-    logger.info('MediaSoup router created');
-})();
+// Serve HLS streams
+// CORS middleware for /streams route
+app.use('/streams', (req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*'); // Allow all origins
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
 
-// Simple hash function to generate a unique integer from a string
-const hashStringToInt = (str) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-        hash = hash & hash; // Convert to 32bit integer
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
     }
-    return Math.abs(hash);
-};
 
-// Function to generate a port number within a specific range
-const generatePort = (cameraId) => {
-    const basePort = 5000;
-    const range = 1000; // Port range from 5000 to 5999
-    const hash = hashStringToInt(cameraId.toString());
-    return basePort + (hash % range);
-};
+    const decodedPath = decodeURIComponent(req.url);
+    req.url = decodedPath;
+    next();
+}, express.static(STREAM_VOLUME_PATH));
+
+
 
 // Socket.io handlers
 io.on('connection', (socket) => {
     logger.info('Client connected');
 
-    // Handle WebRTC offer
-    socket.on('webrtcOffer', async({ cameraId, offer }) => {
-        logger.info(`Received WebRTC offer for cameraId: ${cameraId}`);
-        logger.info(`Offer SDP: ${offer.sdp}`);
-        const camera = await Camera.findById(cameraId);
-        if (!camera) {
-            logger.error('Camera not found');
-            return socket.emit('error', { error: 'Camera not found' });
-        }
-
-        const transport = await router.createWebRtcTransport(mediasoupConfig.webRtcTransport);
-        logger.info('WebRTC transport created');
-
-        await transport.connect({ dtlsParameters: offer.dtlsParameters });
-        logger.info('WebRTC transport connected');
-
-        const producer = await transport.produce({
-            kind: 'video',
-            rtpParameters: offer.rtpParameters,
-        });
-        logger.info('WebRTC producer created');
-
-        socket.emit('webrtcAnswer', { answer: transport.dtlsParameters });
-        logger.info('Sent WebRTC answer');
-        logger.info(`Answer SDP: ${transport.dtlsParameters.sdp}`);
-    });
-
-    // Handle ICE candidates
-    socket.on('iceCandidate', async({ cameraId, candidate }) => {
-        logger.info(`Received ICE candidate for cameraId: ${cameraId}`);
-        logger.info(`Candidate: ${JSON.stringify(candidate)}`);
-        const camera = await Camera.findById(cameraId);
-        if (!camera) {
-            logger.error('Camera not found');
-            return socket.emit('error', { error: 'Camera not found' });
-        }
-
-        const transport = await router.createWebRtcTransport(mediasoupConfig.webRtcTransport);
-
-        await transport.addIceCandidate(candidate);
-        logger.info('Added ICE candidate to transport');
-    });
-
-    // Get all cameras on load
     socket.on('loadCameras', async(callback) => {
         const cameras = await Camera.find();
         callback(cameras);
     });
 
-    // Add new camera
     socket.on('addCamera', async({ name, rtspUrl }, callback) => {
         const camera = new Camera({ name, rtspUrl });
         await camera.save();
         callback({ success: true, camera });
     });
 
-    // Start stream
     socket.on('startStream', async({ cameraId }, callback) => {
         const camera = await Camera.findById(cameraId);
         if (!camera) return callback({ error: 'Camera not found' });
 
-        const port = generatePort(cameraId.toString()); // Generate port within a specific range
-        logger.info(`Starting stream on port ${port} for cameraId: ${cameraId}`);
-        startWebRTCPipeline(camera.rtspUrl, port);
-        callback({ success: true, port });
+        const safeCameraName = encodeURIComponent(camera.name); // Encode camera name
+        const streamPath = path.join(STREAM_VOLUME_PATH, safeCameraName);
+        if (!fs.existsSync(streamPath)) {
+            fs.mkdirSync(streamPath, { recursive: true });
+        }
+
+        startHLSPipeline(camera.rtspUrl, streamPath, safeCameraName); // Use encoded name for file paths
+
+        const streamUrl = `${STREAM_BASE_URL}/streams/${safeCameraName}/output.m3u8`;
+        logger.info(`HLS Stream URL: ${streamUrl}`);
+
+        // Send link to frontend
+        socket.emit('streamReady', { cameraId, streamUrl });
+        callback({ success: true, streamUrl });
     });
 
-    // Stop stream
+
     socket.on('stopStream', async({ cameraId }, callback) => {
         const camera = await Camera.findById(cameraId);
         if (!camera) return callback({ error: 'Camera not found' });
 
         stopPipeline(camera.rtspUrl);
         callback({ success: true });
-    });
-
-    // Record stream
-    socket.on('recordStream', async({ cameraId, toggle }, callback) => {
-        const camera = await Camera.findById(cameraId);
-        if (!camera) return callback({ error: 'Camera not found' });
-
-        if (toggle) {
-            const filePath = `./gstreamer/recordings/${cameraId}-${Date.now()}.mp4`;
-            startRecordingPipeline(camera.rtspUrl, filePath);
-            callback({ success: true, filePath });
-        } else {
-            stopPipeline(camera.rtspUrl);
-            callback({ success: true });
-        }
     });
 });
 

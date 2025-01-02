@@ -8,6 +8,10 @@ services:
       - "3000:3000"
     environment:
       - MONGO_URI=mongodb://mongo:27017/mediasoup
+      - STREAM_BASE_URL=http://localhost:3000
+      - STREAM_VOLUME_PATH=/video-storage
+    volumes:
+      - video-storage:/video-storage
     depends_on:
       - mongo
     networks:
@@ -35,6 +39,9 @@ services:
 
 volumes:
   mongo-data:
+  video-storage:
+    driver: local
+
 
 networks:
   app-network:

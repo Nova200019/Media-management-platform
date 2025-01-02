@@ -26,15 +26,7 @@ const mediasoupConfig = {
             },
             {
                 kind: 'video',
-                mimeType: 'video/VP8',
-                clockRate: 90000,
-                parameters: {
-                    'x-google-start-bitrate': 1000,
-                },
-            },
-            {
-                kind: 'video',
-                mimeType: 'video/H264',
+                mimeType: 'video/H264', // Keep H264 support
                 clockRate: 90000,
                 parameters: {
                     'packetization-mode': 1,
@@ -44,6 +36,7 @@ const mediasoupConfig = {
             },
         ],
     },
+
 
     // WebRtcTransport settings
     webRtcTransport: {
@@ -55,14 +48,6 @@ const mediasoupConfig = {
         enableTcp: true,
         preferUdp: true,
         initialAvailableOutgoingBitrate: 1000000,
-        // Enable DTLS
-        dtlsParameters: {
-            role: 'auto',
-            fingerprints: [{
-                algorithm: 'sha-256',
-                value: 'FINGERPRINT_VALUE'
-            }]
-        },
     },
 };
 

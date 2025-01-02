@@ -13,7 +13,17 @@ RUN apt-get update && apt-get install -y python3 python3-pip
 # Install dependencies
 RUN npm install
 
-RUN apt-get update && apt-get install -y gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+RUN apt-get update && apt-get install -y \
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    gstreamer1.0-alsa \
+    gstreamer1.0-plugins-base-apps \
+    && rm -rf /var/lib/apt/lists/*
+    
 # Copy the rest of the application code
 COPY . .
 
