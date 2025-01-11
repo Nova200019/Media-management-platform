@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y python3 python3-pip
 # Install dependencies
 RUN npm install
 
+
 RUN apt-get update && apt-get install -y \
     gstreamer1.0-tools \
     gstreamer1.0-plugins-base \
