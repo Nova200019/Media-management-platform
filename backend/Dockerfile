@@ -28,6 +28,9 @@ RUN apt-get update && apt-get install -y \
 # Copy the rest of the application code
 COPY . .
 
+# Copy the built React app from the frontend build directory into the container
+COPY ./build ./frontend/build
+
 # Expose the port the app runs on
 EXPOSE 3000
 

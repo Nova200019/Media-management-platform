@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import io from 'socket.io-client';
 import AddCameraForm from './components/AddCameraForm';
 import CameraConsole from './components/CameraConsole';
 import Hls from 'hls.js';
+import { AuthContext } from './AuthContext';
+import { useNavigate, Navigate } from 'react-router-dom';
 
 const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:3000');
 
@@ -10,6 +12,17 @@ function App() {
     const [cameras, setCameras] = useState([]);
     const videoRefs = useRef({}); // Store references to video elements
     const streamUrls = useRef({}); // Store stream URLs by cameraId
+    const { isAuthenticated, isLoading } = useContext(AuthContext);
+    const token = localStorage.getItem('token');
+    const navigate = useNavigate();   
+  
+
+    useEffect(() => {
+        if (!isLoading && !isAuthenticated) {
+            console.log('User is not authenticated, redirecting to /login.');
+            navigate('/login');
+        }
+    }, [isAuthenticated, isLoading, navigate]); 
 
     useEffect(() => {
         // Load existing cameras from backend on mount
@@ -91,7 +104,14 @@ function App() {
         }
     };
 
-    return ( <
+    
+    if(isLoading)
+        return(
+            <div>Loading...</div>
+    )
+
+    return ( isAuthenticated ? (
+        <
         div >
         <
         h1 > Camera Management < /h1> <
@@ -119,7 +139,8 @@ function App() {
         } <
         /div> <
         /div>
-    );
-}
+    
+) : (  <Navigate to="/login" />)
+)}
 
 export default App;

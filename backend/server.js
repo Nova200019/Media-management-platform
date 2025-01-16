@@ -9,42 +9,47 @@ const fs = require('fs');
 const bodyParser = require('body-parser')
 const bcrypt = require('bcryptjs')
 const passport = require('passport');
-const initializePassport = require('./passport-config');
+const passportJwt = require('passport-jwt')
 const req = require('express/lib/request');
 const flash = require('express-flash')
 const session = require('express-session')
-//Passport setup
-initializePassport(passport,
-     name =>  users.find (user => user.name === name),
-     id => users.find (user => user.id === id)
-    );
+const jwt = require('jsonwebtoken')
+const cors = require('cors');
+const { log } = require('console');
+
+const JwtStrategy = passportJwt.Strategy;
+const ExtractJwt = passportJwt.ExtractJwt;
 
 const app = express();
 
 //App config
-app.use(flash())
-app.use(session({
-    secret: 'Placeholder', //TODO read from env
-    resave: false,
-    saveUninitialized: false
-}))
-app.use(passport.initialize())
-app.use(passport.session())
-//Allows req.body.ATTRIBUTE to be read out
-app.use(express.urlencoded({extended: false}))
+
+app.use(bodyParser.json()); //Allows req.body.ATTRIBUTE to be read out
+app.use(cors({
+  origin: '*', 
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], 
+  credentials: true, 
+}));
+const buildPath = path.join(__dirname, 'frontend/build');
+app.use(express.static(buildPath));
+
+// Handle preflight (OPTIONS) requests explicitly
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');  // Frontend origin
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');  // Allow Authorization header
+  res.sendStatus(200);  // Respond with a 200 OK for OPTIONS requests
+});
 
 
 const server = http.createServer(app);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; //Changed port to 80
 const io = socketIo(server, {
     cors: {
         origin: "http://localhost",
         methods: ["GET", "POST"]
     }
 });
-
-
-app.set('view-engine', 'ejs')
 
 
 // MongoDB connection
@@ -78,76 +83,105 @@ app.use('/streams', (req, res, next) => {
 //
 //
 
+const jwtSecret = "Mys3cr3t";
 const users = []
 
-app.use('/', (req, res, next) => next())
-//app.use(bodyParser.urlencoded()) 
-
-app.use('/test', checkAuthenticated, (req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*'); // Allow all origins
-    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    logger.info("HTest");
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-        logger.info("Test1 / 2");
-        return res.sendStatus(200);
-    }
-
-    return res.send("Test complete")
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
 });
 
-app.get('/login', checkNotAuthenticated, (req, res) => {
-    res.render('login.ejs')
-  })
+app.get("/", (req, res) => {
+  res.sendFile(join(__dirname, "../frontend/index.html"));  //I think it doesnt need this
+});
 
-app.post('/login', checkNotAuthenticated,passport.authenticate('local', {
-    successRedirect: 'http://localhost',
-    failureRedirect: '/login',
-    failureFlash: true
-}))
-
-app.get('/register', checkNotAuthenticated, (req, res) => {
-
-    logger.info("Register page reached.");
-    return res.render('register.ejs');
-  });
-
-  
-  app.post('/register',checkNotAuthenticated, async (req, res) => {
-    try {
-      logger.info("Name: " + req.body.name)
-      const hashedPassword = await bcrypt.hash(req.body.password, 10)
-      users.push({
-        id: Date.now().toString(),
-        name: req.body.name,
-        password: hashedPassword
-      })
-      res.redirect('/login')
-    } catch {
-      res.redirect('/test')
+app.get(
+  "/self",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    if (req.user) {
+      res.status(200).send(req.user);
+    } else {
+      res.status(401).end();
     }
-    logger.info(users)
-  })
+  },
+);
 
-function checkAuthenticated(req, res, next){
-    if (req.isAuthenticated()){
-        logger.info('User successfully authenticated')
-        return next()
-    }
-    res.redirect('/login')
+
+//FOR TESTING PURPOSES:
+app.get("/users", (req, res) => {
+  res.json(users)
+})
+
+
+app.post("/login", async (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*"); // Allow all origins
+  res.header('Access-Control-Allow-Methods', 'POST');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  logger.info(res.header)
+  const user = users.find(user => user.username === req.body.username)
+  console.log("Username 1 " +req.body.username)
+  console.log("User: " + user)
+  if (user == null) {
+    console.log("wrong credentials 1");
+    return res.status(401).end();
 }
-
-function checkNotAuthenticated(req, res, next){
-    if (req.isAuthenticated()){
-        logger.info("User already logged in")
-        return res.redirect('http://localhost')
-    }
-    next()
+try {
+  if (await bcrypt.compare(req.body.password, user.password)) {
+    console.log("authentication OK");
+    const token = jwt.sign(
+      {
+        data: user,
+      },
+      jwtSecret,
+      {
+        issuer: "accounts.examplesoft.com",
+        audience: "yoursite.net",
+        expiresIn: "1h",
+      },
+    );
+    
+    res.json({ token });
+  } else {
+    console.log("wrong credentials 2");
+    res.status(401).end();
+  }
+} catch (e) {
+  console.log("wrong password?");
+    res.status(401).end();
 }
+});
 
+app.post('/register', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*'); // Allow all origins
+  res.header('Access-Control-Allow-Methods', 'POST');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  try {
+    console.log("Name: " + req.body.username)
+    const hashedPassword = await bcrypt.hash(req.body.password, 10)
+    users.push({
+      id: Date.now().toString(),
+      username: req.body.username,
+      password: hashedPassword
+    })
+    res.status(200).end();
+  } catch {
+    res.status(401).end();
+  }
+  res.end();
+})
 
+const jwtDecodeOptions = {
+  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+  secretOrKey: jwtSecret,
+  issuer: "accounts.examplesoft.com",
+  audience: "yoursite.net",
+};
 
+passport.use(
+  new JwtStrategy(jwtDecodeOptions, (payload, done) => {
+    return done(null, payload.data);
+  }),
+);
 
 //
 // Old stuff

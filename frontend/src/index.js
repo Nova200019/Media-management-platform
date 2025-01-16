@@ -3,11 +3,23 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import Login from './Login'; 
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './AuthContext';
+import Register from './Register';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+     <Router>
+       <Routes>
+         <Route path="/login" element={<Login />} />
+         <Route path="/" element={<App />} />
+         <Route path="/register" element={<Register />} />
+       </Routes>
+     </Router>
+    </AuthProvider>
   </React.StrictMode>
 );
 

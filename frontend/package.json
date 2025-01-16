@@ -4,12 +4,13 @@
     "private": true,
     "dependencies": {
         "cra-template": "1.2.0",
+        "hls.js": "^1.1.4",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
+        "react-router-dom": "^7.1.1",
         "react-scripts": "5.0.1",
         "socket.io-client": "^4.8.1",
-        "web-vitals": "^2.1.4",
-        "hls.js": "^1.1.4"
+        "web-vitals": "^2.1.4"
     },
     "devDependencies": {
         "@babel/plugin-proposal-private-property-in-object": "^7.18.6"
