@@ -16,7 +16,7 @@ const session = require('express-session')
 const jwt = require('jsonwebtoken')
 const cors = require('cors');
 const { log } = require('console');
-const jwtdecode = require('jwt-decode');
+const {jwtDecode}  = require ('jwt-decode');
 const { Logger } = require('winston');
 const mysql = require('mysql2');
 const { v4: uuidv4 } = require('uuid');
@@ -67,7 +67,7 @@ io.engine.use((req, res, next) => {
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI || 'mongodb://mongo:27017/mediasoup';
 mongoose.connect(mongoUri);
-const CameraSchema = new mongoose.Schema({ name: String, rtspUrl: String });
+const CameraSchema = new mongoose.Schema({ name: String, rtspUrl: String, userID: String });
 const Camera = mongoose.model('Camera', CameraSchema);
 
 const STREAM_VOLUME_PATH = process.env.STREAM_VOLUME_PATH || '/video-storage';
@@ -154,6 +154,16 @@ app.get("/users", (req, res) => {
   });
 });
 
+app.get('/cameras', async (req, res) => {
+  try {
+    const cameras = await Camera.find();
+    res.status(200).json(cameras);
+  } catch (error) {
+    console.error('Error fetching cameras:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 async function findUser(username) {
   return new Promise((resolve, reject) => {
     db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
@@ -169,9 +179,6 @@ async function findUser(username) {
 
 // API route for user authentication
 app.post("/login", async (req, res) => {
-  res.header("Access-Control-Allow-Origin", "*"); // Allow all origins
-  res.header('Access-Control-Allow-Methods', 'POST');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   const user = await findUser(req.body.username);
   if (!user) {
     console.log("wrong credentials 1");
@@ -182,7 +189,7 @@ app.post("/login", async (req, res) => {
       console.log("authentication OK");
       const token = jwt.sign(
         {
-          data: {username: user.username},
+          data: {username: user.username, userID: user.uuid},
         },
         jwtSecret,
         {
@@ -203,9 +210,6 @@ app.post("/login", async (req, res) => {
 
 // API route for user registration
 app.post('/register', async (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*'); // Allow all origins
-  res.header('Access-Control-Allow-Methods', 'POST');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   try {
     logger.info('Secret: ' + jwtSecret);
     const existingUser = await findUser(req.body.username);
@@ -230,7 +234,7 @@ app.post('/register', async (req, res) => {
       // Generate JWT token
       const token = jwt.sign(
         {
-          data: {username: newUser.username, userId: newUser.uuid},
+          data: {username: newUser.username, userID: newUser.uuid},
         },
         jwtSecret,
         {
@@ -273,26 +277,41 @@ app.get('*', (req, res) => {
 io.on('connection', (socket) => {
     logger.info('Client connected');
 
-    socket.on('loadCameras', async(callback) => {
-        const cameras = await Camera.find();
-        callback(cameras);
-    });
+    socket.on('loadCameras', async (callback) => {
+      const token = socket.handshake.headers.authorization.split(' ')[1];
+      logger.info(token)
+      const decodedToken = jwt.decode(token);
+      const userID = decodedToken.data.userID;
+      logger.info("on connection data: "+ decodedToken.data);
+      logger.info("on connection uuid: "+ userID);
+      const cameras = await Camera.find({ userID });
+      logger.info("cameras: "+ cameras);
+      callback(cameras);
+  });
 
-    socket.on('addCamera', async({ name, rtspUrl }, callback) => {
-        const camera = new Camera({ name, rtspUrl });
-        await camera.save();
-        callback({ success: true, camera });
-    });
+  socket.on('addCamera', async ({ name, rtspUrl }, callback) => {
+    const token = socket.handshake.headers.authorization.split(' ')[1];
+    const decodedToken = jwt.decode(token);
+    const userID = decodedToken.data.userID;
+    logger.info("addCamera UUID: " +userID);
+    const camera = new Camera({ name, rtspUrl, userID: userID });
+    await camera.save();
+    callback({ success: true, camera });
+});
 
-    socket.on('startStream', async({ cameraId }, callback) => {
-        const camera = await Camera.findById(cameraId);
-        if (!camera) return callback({ error: 'Camera not found' });
+socket.on('startStream', async ({ cameraId }, callback) => {
+  const token = socket.handshake.headers.authorization.split(' ')[1];
+  const decodedToken = jwt.decode(token);
+      const userID = decodedToken.data.userID;
+  logger.info("startStream UUID: " + userID);
+  const camera = await Camera.findOne({ _id: cameraId, userID });
+  if (!camera) return callback({ error: 'Camera not found or not authorized' });
 
-        const safeCameraName = encodeURIComponent(camera.name); // Encode camera name
-        const streamPath = path.join(STREAM_VOLUME_PATH, safeCameraName);
-        if (!fs.existsSync(streamPath)) {
-            fs.mkdirSync(streamPath, { recursive: true });
-        }
+  const safeCameraName = encodeURIComponent(camera.name); // Encode camera name
+  const streamPath = path.join(STREAM_VOLUME_PATH, safeCameraName);
+  if (!fs.existsSync(streamPath)) {
+      fs.mkdirSync(streamPath, { recursive: true });
+  }
 
         startHLSPipeline(camera.rtspUrl, streamPath, safeCameraName); // Use encoded name for file paths
 
@@ -305,13 +324,17 @@ io.on('connection', (socket) => {
     });
 
 
-    socket.on('stopStream', async({ cameraId }, callback) => {
-        const camera = await Camera.findById(cameraId);
-        if (!camera) return callback({ error: 'Camera not found' });
+    socket.on('stopStream', async ({ cameraId }, callback) => {
+      const token = socket.handshake.headers.authorization.split(' ')[1];
+      const decodedToken = jwt.decode(token);
+      const userID = decodedToken.data.userID;
 
-        stopPipeline(camera.rtspUrl);
-        callback({ success: true });
-    });
+      const camera = await Camera.findOne({ _id: cameraId, userID });
+      if (!camera) return callback({ error: 'Camera not found or not authorized' });
+
+      stopPipeline(camera.rtspUrl);
+      callback({ success: true });
+  });
 });
 
 
