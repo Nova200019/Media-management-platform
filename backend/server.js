@@ -122,14 +122,8 @@ app.use('/streams', (req, res, next) => {
     next();
 }, express.static(STREAM_VOLUME_PATH));
 
-//TEST FOR NEW STUFF
-//
-//
-//
 
-
-
-
+// Serve frontend
 app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "../frontend/index.html"));  //I think it doesnt need this
 });
@@ -171,7 +165,7 @@ async function findUser(username) {
   });
 }
 
-
+// API route for user authentication
 app.post("/login", async (req, res) => {
   res.header("Access-Control-Allow-Origin", "*"); // Allow all origins
   res.header('Access-Control-Allow-Methods', 'POST');
@@ -186,12 +180,10 @@ app.post("/login", async (req, res) => {
       console.log("authentication OK");
       const token = jwt.sign(
         {
-          data: user,
+          data: {username: user.username},
         },
         jwtSecret,
         {
-          issuer: "accounts.examplesoft.com",
-          audience: "yoursite.net",
           expiresIn: "1h",
         },
       );
@@ -207,11 +199,13 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// API route for user registration
 app.post('/register', async (req, res) => {
   res.header('Access-Control-Allow-Origin', '*'); // Allow all origins
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   try {
+    logger.info('Secret: ' + jwtSecret);
     const existingUser = await findUser(req.body.username);
     if (existingUser) {
       console.log('User already exists');
@@ -231,16 +225,15 @@ app.post('/register', async (req, res) => {
       // Generate JWT token
       const token = jwt.sign(
         {
-          data: newUser.username,
+          data: {username: newUser.username},
         },
         jwtSecret,
         {
-          issuer: "accounts.examplesoft.com",
-          audience: "yoursite.net",
-          expiresIn: "1h",
+          expiresIn: "24h",
         },
       );
-
+      // Send token to client
+      logger.info(token);
       res.status(200).json({ token });
     });
   } catch (error) {
@@ -252,10 +245,9 @@ app.post('/register', async (req, res) => {
 const jwtDecodeOptions = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
   secretOrKey: jwtSecret,
-  issuer: "accounts.examplesoft.com",
-  audience: "yoursite.net",
 };
 
+// Configure passport to use JWT strategy
 passport.use(
   new JwtStrategy(jwtDecodeOptions, (payload, done) => {
     const user = findUser(payload.data.username);
@@ -267,14 +259,10 @@ passport.use(
   }),
 );
 
-
+// Serve frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
-
-//
-// Old stuff
-// 
 
 // Socket.io handlers
 io.on('connection', (socket) => {
