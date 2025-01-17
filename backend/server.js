@@ -11,12 +11,9 @@ const bcrypt = require('bcryptjs')
 const passport = require('passport');
 const passportJwt = require('passport-jwt')
 const req = require('express/lib/request');
-const flash = require('express-flash')
-const session = require('express-session')
 const jwt = require('jsonwebtoken')
 const cors = require('cors');
 const { log } = require('console');
-const {jwtDecode}  = require ('jwt-decode');
 const { Logger } = require('winston');
 const mysql = require('mysql2');
 const { v4: uuidv4 } = require('uuid');
@@ -150,6 +147,15 @@ app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "../frontend/index.html"));  //I think it doesnt need this
 });
 
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+});
+
+app.get("/register", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+});
+
+// Verify JWT token
 app.get(
   "/self",
   passport.authenticate("jwt", { session: false }),
@@ -174,6 +180,7 @@ app.get("/users", (req, res) => {
   });
 });
 
+
 app.get('/cameras', async (req, res) => {
   try {
     const cameras = await Camera.find();
@@ -184,6 +191,7 @@ app.get('/cameras', async (req, res) => {
   }
 });
 
+// Function to find user in MySQL database
 async function findUser(username) {
   return new Promise((resolve, reject) => {
     db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
@@ -198,11 +206,13 @@ async function findUser(username) {
 
 // API route for user authentication
 app.post("/login", async (req, res) => {
+  // Check if user exists
   const user = await findUser(req.body.username);
   if (!user) {
     return res.status(401).json({ message: 'Invalid credentials.' });
   }
   try {
+    // Check if password is correct
     if (await bcrypt.compare(req.body.password, user.password)) {
       logger.info("Authentication OK");
       const token = jwt.sign(
@@ -214,7 +224,7 @@ app.post("/login", async (req, res) => {
           expiresIn: "24h",
         },
       );
-      
+      // Send token to client
       res.status(200).json({ token });
     } else {
       res.status(401).json({ message: 'Invalid credentials.' });
@@ -227,10 +237,11 @@ app.post("/login", async (req, res) => {
 // API route for user registration
 app.post('/register', async (req, res) => {
   try {
+    // Check if user already exists
     const existingUser = await findUser(req.body.username);
     if (existingUser) {
       logger.info('User already exists');
-      return res.status(409).json({ message: 'User already exists' }); // Conflict status code
+      return res.status(409).json({ message: 'User already exists' }); 
     }
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const uuid = uuidv4();
@@ -267,9 +278,10 @@ app.post('/register', async (req, res) => {
 
 // Serve frontend
 app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
+  res.status(404).send('Not found');
 });
 
+// Helper function to get user ID from socket
 function getUserIDFromSocket(socket) {
   const token = socket.handshake.headers.authorization.split(' ')[1];
   const decodedToken = jwt.decode(token);

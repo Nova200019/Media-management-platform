@@ -3,7 +3,7 @@ import io from 'socket.io-client';
 import AddCameraForm from './components/AddCameraForm';
 import CameraConsole from './components/CameraConsole';
 import Hls from 'hls.js';
-import { AuthContext, setIsAuthenticated } from './AuthContext';
+import { AuthContext } from './AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 
@@ -19,6 +19,7 @@ function App() {
     
 
     useEffect(() => {
+        // Redirect to /login if user is not authenticated after loading
         if (!isLoading && !isAuthenticated) {
             console.log('User is not authenticated, redirecting to /login.');
             navigate('/login');
@@ -30,7 +31,7 @@ function App() {
             const token = localStorage.getItem('token');
             const decodedToken = jwtDecode(token);
             setUsername(decodedToken.data.username);
-
+            // Connect to the server using the token
             socket = io(process.env.REACT_APP_API_URL || 'http://localhost:3000', {
                 extraHeaders: {
                     Authorization: `Bearer ${token}`
