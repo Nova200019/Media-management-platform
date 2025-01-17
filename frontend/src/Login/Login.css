@@ -24,8 +24,9 @@
 }
 
 .login-container input[type="text"],
-.login-container input[type="password"] {
-    width: 100%;
+.login-container input[type="password"],
+.login-container button {
+    width: calc(100% - 1.25em); /* Adjust width to account for padding */
     padding: 0.625em;
     margin: 0.625em 0;
     border: 0.0625em solid #ccc;
@@ -33,11 +34,8 @@
 }
 
 .login-container button {
-    width: 100%;
-    padding: 0.625em;
     background-color: #007bff;
     border: none;
-    border-radius: 0.25em;
     color: #fff;
     font-size: 1em;
     cursor: pointer;
@@ -46,6 +44,7 @@
 .login-container button#login {
     margin-bottom: 1em;
 }
+
 .login-container button:hover {
     background-color: #0056b3;
 }
