@@ -19,6 +19,7 @@ const { log } = require('console');
 const jwtdecode = require('jwt-decode');
 const { Logger } = require('winston');
 const mysql = require('mysql2');
+const { v4: uuidv4 } = require('uuid');
 
 const JwtStrategy = passportJwt.Strategy;
 const ExtractJwt = passportJwt.ExtractJwt;
@@ -93,6 +94,7 @@ db.connect((err) => {
   const createUsersTable = `
       CREATE TABLE IF NOT EXISTS users (
           id INT AUTO_INCREMENT PRIMARY KEY,
+          uuid VARCHAR(36) NOT NULL UNIQUE,
           username VARCHAR(255) NOT NULL UNIQUE,
           password VARCHAR(255) NOT NULL
       )
@@ -212,12 +214,15 @@ app.post('/register', async (req, res) => {
       return res.status(409).json({ message: 'User already exists' }); // Conflict status code
     }
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const uuid = uuidv4();
     const newUser = {
       username: req.body.username,
-      password: hashedPassword
+      password: hashedPassword,
+      uuid: uuid
     };
+    logger.info('New user:', newUser);
     //Insert user into database
-    db.query('INSERT INTO users (username, password) VALUES (?, ?)', [newUser.username, newUser.password], (err, results) => {
+    db.query('INSERT INTO users (uuid, username, password) VALUES (?, ?, ?)', [newUser.uuid, newUser.username, newUser.password], (err, results) => {
       if (err) {
         console.error('Error inserting user into database:', err);
         return res.status(500).json({ message: 'Internal server error' });
@@ -225,7 +230,7 @@ app.post('/register', async (req, res) => {
       // Generate JWT token
       const token = jwt.sign(
         {
-          data: {username: newUser.username},
+          data: {username: newUser.username, userId: newUser.uuid},
         },
         jwtSecret,
         {
