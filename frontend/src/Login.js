@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 import './Login.css';
@@ -6,12 +6,14 @@ import './Login.css';
 const Login = () => {
     const { setIsAuthenticated } = useContext(AuthContext);
     const navigate = useNavigate();
+    const [error, setError] = useState('');
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        setError('');
         const username = e.target.username.value;
         const password = e.target.password.value;
-        console.log("Here1")
+
         const res = await fetch('http://localhost:3000/login', {
             method: 'POST',
             headers: {
@@ -21,13 +23,13 @@ const Login = () => {
         });
 
         if (res.status === 200) {
-            console.log("here2")
             const { token } = await res.json();
             localStorage.setItem('token', token);
             setIsAuthenticated(true);
             navigate('/');
         } else {
-            alert('Invalid credentials.');
+            const data = await res.json();
+            setError(data.message || 'Invalid credentials.');
         }
     };
 
@@ -48,6 +50,7 @@ const Login = () => {
                     <label>Password:</label>
                     <input type="password" name="password" required />
                 </div>
+                <p className="error-message">{error}</p>
                 <button type="submit" id="login">Login</button>
                 <button type="button" onClick={goToRegister}>
                     Register

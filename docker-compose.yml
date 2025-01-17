@@ -15,6 +15,7 @@ services:
       - MYSQL_DATABASE=user_management
       - STREAM_BASE_URL=http://localhost:3000
       - STREAM_VOLUME_PATH=/video-storage
+      - JWT_SECRET=v6k5rosZ5cprLTChxj5wEbGO8h4XHGPe
     volumes:
       - video-storage:/video-storage
     depends_on:
@@ -41,6 +42,7 @@ services:
       MYSQL_DATABASE: user_management
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
 
@@ -60,7 +62,6 @@ volumes:
   mysql-data:
   video-storage:
     driver: local
-
 
 networks:
   app-network:

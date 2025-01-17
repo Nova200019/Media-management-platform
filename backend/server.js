@@ -18,9 +18,11 @@ const cors = require('cors');
 const { log } = require('console');
 const jwtdecode = require('jwt-decode');
 const { Logger } = require('winston');
+const mysql = require('mysql2');
 
 const JwtStrategy = passportJwt.Strategy;
 const ExtractJwt = passportJwt.ExtractJwt;
+const jwtSecret = process.env.JWT_SECRET || 'defaultSecret';
 
 const app = express();
 
@@ -54,7 +56,6 @@ const io = socketIo(server, {
 });
 io.engine.use((req, res, next) => {
   const isHandshake = req._query.sid === undefined;
-  logger.info(req.headers)
   if (isHandshake) {
     passport.authenticate("jwt", { session: false })(req, res, next);
   } else {
@@ -87,6 +88,22 @@ db.connect((err) => {
       return;
   }
   console.log('Connected to the MySQL database.');
+
+  // Create users table if it doesn't exist
+  const createUsersTable = `
+      CREATE TABLE IF NOT EXISTS users (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          username VARCHAR(255) NOT NULL UNIQUE,
+          password VARCHAR(255) NOT NULL
+      )
+  `;
+  db.query(createUsersTable, (err, results) => {
+      if (err) {
+          console.error('Error creating users table:', err);
+      } else {
+          console.log('Users table created or already exists.');
+      }
+  });
 });
 
 // Serve HLS streams
@@ -110,8 +127,7 @@ app.use('/streams', (req, res, next) => {
 //
 //
 
-const jwtSecret = "Mys3cr3t";
-const users = []
+
 
 
 app.get("/", (req, res) => {
@@ -133,11 +149,26 @@ app.get(
 
 //FOR TESTING PURPOSES:
 app.get("/users", (req, res) => {
-  res.json(users)
-})
+  db.query('SELECT * FROM users', (err, results) => {
+    if (err) {
+      console.error('Error querying database:', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+    res.json(results);
+  });
+});
 
-function findUser(username) {
-  return users.find(user => user.username === username)
+async function findUser(username) {
+  return new Promise((resolve, reject) => {
+    db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
+      if (err) {
+        console.error('Error querying database:', err);
+        return reject(err);
+      }
+      console.log('User query results:', results);
+      resolve(results[0]);
+    });
+  });
 }
 
 
@@ -145,35 +176,35 @@ app.post("/login", async (req, res) => {
   res.header("Access-Control-Allow-Origin", "*"); // Allow all origins
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  const user = findUser(req.body.username);
-  if (user == null) {
+  const user = await findUser(req.body.username);
+  if (!user) {
     console.log("wrong credentials 1");
-    return res.status(401).end();
-}
-try {
-  if (await bcrypt.compare(req.body.password, user.password)) {
-    console.log("authentication OK");
-    const token = jwt.sign(
-      {
-        data: user,
-      },
-      jwtSecret,
-      {
-        issuer: "accounts.examplesoft.com",
-        audience: "yoursite.net",
-        expiresIn: "1h",
-      },
-    );
-    
-    res.json({ token });
-  } else {
-    console.log("wrong credentials 2");
-    res.status(401).end();
+    return res.status(401).json({ message: 'Invalid credentials.' });
   }
-} catch (e) {
-  console.log("wrong password?");
-    res.status(401).end();
-}
+  try {
+    if (await bcrypt.compare(req.body.password, user.password)) {
+      console.log("authentication OK");
+      const token = jwt.sign(
+        {
+          data: user,
+        },
+        jwtSecret,
+        {
+          issuer: "accounts.examplesoft.com",
+          audience: "yoursite.net",
+          expiresIn: "1h",
+        },
+      );
+      
+      res.status(200).json({ token });
+    } else {
+      console.log("wrong credentials 2");
+      res.status(401).json({ message: 'Invalid credentials.' });
+    }
+  } catch (e) {
+    console.log("wrong password?");
+    res.status(401).json({ message: 'Invalid credentials.' });
+  }
 });
 
 app.post('/register', async (req, res) => {
@@ -181,32 +212,39 @@ app.post('/register', async (req, res) => {
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   try {
-    const existingUser = findUser(req.body.username);
+    const existingUser = await findUser(req.body.username);
     if (existingUser) {
+      console.log('User already exists');
       return res.status(409).json({ message: 'User already exists' }); // Conflict status code
     }
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const newUser = {
-      id: Date.now().toString(),
       username: req.body.username,
       password: hashedPassword
     };
-    users.push(newUser);
+    //Insert user into database
+    db.query('INSERT INTO users (username, password) VALUES (?, ?)', [newUser.username, newUser.password], (err, results) => {
+      if (err) {
+        console.error('Error inserting user into database:', err);
+        return res.status(500).json({ message: 'Internal server error' });
+      }
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          data: newUser.username,
+        },
+        jwtSecret,
+        {
+          issuer: "accounts.examplesoft.com",
+          audience: "yoursite.net",
+          expiresIn: "1h",
+        },
+      );
 
-    const token = jwt.sign(
-      {
-        data: newUser,
-      },
-      jwtSecret,
-      {
-        issuer: "accounts.examplesoft.com",
-        audience: "yoursite.net",
-        expiresIn: "1h",
-      },
-    );
-
-    res.status(200).json({ token });
+      res.status(200).json({ token });
+    });
   } catch (error) {
+    console.error('Error during registration:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });

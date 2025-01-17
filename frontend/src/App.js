@@ -5,20 +5,18 @@ import CameraConsole from './components/CameraConsole';
 import Hls from 'hls.js';
 import { AuthContext, setIsAuthenticated } from './AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
-const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:3000', {
-    extraHeaders: {
-       Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
-});
+import { jwtDecode } from 'jwt-decode';
 
+let socket;
 function App() {
     const [cameras, setCameras] = useState([]);
+    const [username, setUsername] = useState('');
     const videoRefs = useRef({}); // Store references to video elements
     const streamUrls = useRef({}); // Store stream URLs by cameraId
     const { isAuthenticated, isLoading, setIsAuthenticated } = useContext(AuthContext);
     const token = localStorage.getItem('token');
     const navigate = useNavigate();   
-  
+    
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -27,29 +25,46 @@ function App() {
         }
     }, [isAuthenticated, isLoading, navigate]); 
 
+    useEffect(() => {
+        if (isAuthenticated) {
+            const token = localStorage.getItem('token');
+            const decodedToken = jwtDecode(token);
+            setUsername(decodedToken.data.username);
+
+            socket = io(process.env.REACT_APP_API_URL || 'http://localhost:3000', {
+                extraHeaders: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            // Load existing cameras from backend on mount
+            socket.emit('loadCameras', (loadedCameras) => setCameras(loadedCameras));
+
+            // Listen for streamReady socket event
+            socket.on('streamReady', ({ cameraId, streamUrl }) => {
+                console.log(`Stream ready for camera ${cameraId}: ${streamUrl}`);
+                streamUrls.current[cameraId] = streamUrl;
+                if (videoRefs.current[cameraId]) {
+                    setupHlsPlayer(cameraId, streamUrl);
+                }
+            });
+
+            return () => {
+                socket.off('streamReady');
+                socket.disconnect();
+            };
+        }
+    }, [isAuthenticated]);
+
+
+    
     const handleLogout = () => {
         setIsAuthenticated(false);
         localStorage.removeItem('token');
         navigate('/login');
     };
 
-    useEffect(() => {
-        // Load existing cameras from backend on mount
-        socket.emit('loadCameras', (loadedCameras) => setCameras(loadedCameras));
 
-        // Listen for streamReady socket event
-        socket.on('streamReady', ({ cameraId, streamUrl }) => {
-            console.log(`Stream ready for camera ${cameraId}: ${streamUrl}`);
-            streamUrls.current[cameraId] = streamUrl;
-            if (videoRefs.current[cameraId]) {
-                setupHlsPlayer(cameraId, streamUrl);
-            }
-        });
-
-        return () => {
-            socket.off('streamReady');
-        };
-    }, []);
 
     const handleAddCamera = (camera) => {
         socket.emit('addCamera', camera, ({ success, camera }) => {
@@ -121,6 +136,7 @@ function App() {
     return ( isAuthenticated ? (
         <div>
             <h1>Camera Management</h1>
+            <p>Welcome, {username}!</p>
             <button onClick={handleLogout}>Logout</button>
             <AddCameraForm onAdd={handleAddCamera} />
             <div>

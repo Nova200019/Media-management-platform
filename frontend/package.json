@@ -5,6 +5,7 @@
     "dependencies": {
         "cra-template": "1.2.0",
         "hls.js": "^1.1.4",
+        "jwt-decode": "^4.0.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "react-router-dom": "^7.1.1",
