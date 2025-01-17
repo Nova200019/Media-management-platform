@@ -73,6 +73,17 @@ function App() {
         });
     };
 
+    const handleDeleteCamera = (cameraId) => {
+        socket.emit('deleteCamera', { cameraId: cameraId.toString() }, (response) => {
+            if (response.success) {
+                setCameras((prev) => prev.filter((camera) => camera._id !== cameraId));
+                console.log(`Camera ${cameraId} deleted successfully`);
+            } else {
+                console.error('Failed to delete camera');
+            }
+        });
+    };
+
     const handleStartStream = (cameraId) => {
         socket.emit('startStream', { cameraId: cameraId.toString() }, (response) => {
             if (response.success) {
@@ -143,7 +154,7 @@ function App() {
             <div>
                 {cameras.map((camera) => (
                     <div key={camera._id}>
-                        <CameraConsole camera={camera} onStart={handleStartStream} onStop={handleStopStream} onRecord={handleRecordStream} />
+                        <CameraConsole camera={camera} onStart={handleStartStream} onStop={handleStopStream} onRecord={handleRecordStream} onDelete={handleDeleteCamera}/>
                         <video ref={(el) => (videoRefs.current[camera._id] = el)} id={`video-${camera._id}`} width="640" height="480" controls />
                     </div>
                 ))}

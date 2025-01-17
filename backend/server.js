@@ -143,15 +143,15 @@ app.use('/streams', (req, res, next) => {
 
 // Serve frontend
 app.get("/", (req, res) => {
-  res.sendFile(join(__dirname, "../frontend/index.html"));  //I think it doesnt need this
+  res.sendFile(path.join(__dirname, "build/index.html"));
 });
 
 app.get("/login", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+  res.sendFile(path.join(__dirname, "build/index.html"));
 });
 
 app.get("/register", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+  res.sendFile(path.join(__dirname, "build/index.html"));
 });
 
 // Verify JWT token
@@ -303,6 +303,16 @@ io.on('connection', (socket) => {
     const camera = new Camera({ name, rtspUrl, userID });
     await camera.save();
     callback({ success: true, camera });
+});
+
+socket.on('deleteCamera', async ({ cameraId }, callback) => {
+  const token = socket.handshake.headers.authorization.split(' ')[1];
+  const decodedToken = jwt.decode(token);
+  const userID = decodedToken.data.userID;
+
+  const camera = await Camera.findOneAndDelete({ _id: cameraId, userID });
+  if (!camera) return callback({ error: 'Camera not found or not authorized' });
+  callback({ success: true });
 });
 
 socket.on('startStream', async ({ cameraId }, callback) => {

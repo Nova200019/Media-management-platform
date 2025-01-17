@@ -19,6 +19,11 @@ const Register = () => {
             setError("Passwords don't match!");
             return;
         }
+        // Check if the password has a minimum length of 5
+        if (password.length < 5) {
+            setError("Password must be at least 5 characters long!");
+            return;
+        }
         // Send a POST request to the server with the registration details
         const response = await fetch('http://localhost:3000/register', {
             method: 'POST',
