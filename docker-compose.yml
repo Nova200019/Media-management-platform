@@ -8,12 +8,18 @@ services:
       - "3000:3000"
     environment:
       - MONGO_URI=mongodb://mongo:27017/mediasoup
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=yourpassword
+      - MYSQL_DATABASE=user_management
       - STREAM_BASE_URL=http://localhost:3000
       - STREAM_VOLUME_PATH=/video-storage
     volumes:
       - video-storage:/video-storage
     depends_on:
       - mongo
+      - mysql
     networks:
       - app-network
 
@@ -23,6 +29,18 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    networks:
+      - app-network
+
+  mysql:
+    image: mysql:5.7
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: yourpassword
+      MYSQL_DATABASE: user_management
+    volumes:
+      - mysql-data:/var/lib/mysql
     networks:
       - app-network
 
@@ -39,6 +57,7 @@ services:
 
 volumes:
   mongo-data:
+  mysql-data:
   video-storage:
     driver: local
 

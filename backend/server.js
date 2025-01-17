@@ -16,6 +16,8 @@ const session = require('express-session')
 const jwt = require('jsonwebtoken')
 const cors = require('cors');
 const { log } = require('console');
+const jwtdecode = require('jwt-decode');
+const { Logger } = require('winston');
 
 const JwtStrategy = passportJwt.Strategy;
 const ExtractJwt = passportJwt.ExtractJwt;
@@ -50,7 +52,15 @@ const io = socketIo(server, {
         methods: ["GET", "POST"]
     }
 });
-
+io.engine.use((req, res, next) => {
+  const isHandshake = req._query.sid === undefined;
+  logger.info(req.headers)
+  if (isHandshake) {
+    passport.authenticate("jwt", { session: false })(req, res, next);
+  } else {
+    next();
+  }
+});
 
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI || 'mongodb://mongo:27017/mediasoup';
@@ -61,6 +71,23 @@ const Camera = mongoose.model('Camera', CameraSchema);
 const STREAM_VOLUME_PATH = process.env.STREAM_VOLUME_PATH || '/video-storage';
 const STREAM_BASE_URL = process.env.STREAM_BASE_URL || 'http://localhost:3000';
 
+// MySQL connection
+const db = mysql.createConnection({
+  host: process.env.MYSQL_HOST || 'localhost',
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || 'yourpassword',
+  database: process.env.MYSQL_DATABASE || 'user_management',
+  port: process.env.MYSQL_PORT || 3306
+});
+
+// Connect to MySQL database
+db.connect((err) => {
+  if (err) {
+      console.error('Error connecting to the MySQL database:', err);
+      return;
+  }
+  console.log('Connected to the MySQL database.');
+});
 
 // Serve HLS streams
 // CORS middleware for /streams route
@@ -86,9 +113,6 @@ app.use('/streams', (req, res, next) => {
 const jwtSecret = "Mys3cr3t";
 const users = []
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
-});
 
 app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "../frontend/index.html"));  //I think it doesnt need this
@@ -112,15 +136,16 @@ app.get("/users", (req, res) => {
   res.json(users)
 })
 
+function findUser(username) {
+  return users.find(user => user.username === username)
+}
+
 
 app.post("/login", async (req, res) => {
   res.header("Access-Control-Allow-Origin", "*"); // Allow all origins
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  logger.info(res.header)
-  const user = users.find(user => user.username === req.body.username)
-  console.log("Username 1 " +req.body.username)
-  console.log("User: " + user)
+  const user = findUser(req.body.username);
   if (user == null) {
     console.log("wrong credentials 1");
     return res.status(401).end();
@@ -156,19 +181,35 @@ app.post('/register', async (req, res) => {
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   try {
-    console.log("Name: " + req.body.username)
-    const hashedPassword = await bcrypt.hash(req.body.password, 10)
-    users.push({
+    const existingUser = findUser(req.body.username);
+    if (existingUser) {
+      return res.status(409).json({ message: 'User already exists' }); // Conflict status code
+    }
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const newUser = {
       id: Date.now().toString(),
       username: req.body.username,
       password: hashedPassword
-    })
-    res.status(200).end();
-  } catch {
-    res.status(401).end();
+    };
+    users.push(newUser);
+
+    const token = jwt.sign(
+      {
+        data: newUser,
+      },
+      jwtSecret,
+      {
+        issuer: "accounts.examplesoft.com",
+        audience: "yoursite.net",
+        expiresIn: "1h",
+      },
+    );
+
+    res.status(200).json({ token });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' });
   }
-  res.end();
-})
+});
 
 const jwtDecodeOptions = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -179,9 +220,19 @@ const jwtDecodeOptions = {
 
 passport.use(
   new JwtStrategy(jwtDecodeOptions, (payload, done) => {
-    return done(null, payload.data);
+    const user = findUser(payload.data.username);
+    if (user) {
+      return done(null, user);
+    } else {
+      return done(null, false);
+    }
   }),
 );
+
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
 
 //
 // Old stuff

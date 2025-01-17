@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from './AuthContext';
+import './Register.css';
 
 const Register = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const { setIsAuthenticated } = useContext(AuthContext);
     const navigate = useNavigate();
 
     const handleRegister = async (e) => {
         e.preventDefault();
-        console.info("Bumsdi1")
+        setError('');
         if (password !== confirmPassword) {
-            alert("Passwords don't match!");
+            setError("Passwords don't match!");
             return;
         }
 
@@ -22,18 +26,24 @@ const Register = () => {
             },
             body: JSON.stringify({ username, password }),
         });
-        console.log("Bumsdi2")
+
         if (response.status === 200) {
-            alert('Registration successful! You can now log in.');
-            navigate('/login'); // Redirect to login page after successful registration
+            setError('');
+            const data = await response.json();
+            setIsAuthenticated(true);
+            localStorage.setItem('token', data.token); // Store the JWT token
+            alert('Registration successful!');
+            navigate('/'); // Redirect to home page after successful registration
         } else {
-            alert('Registration failed! Please try again.');
+            const data = await response.json();
+                setError(data.message || 'Registration failed! Please try again.');
         }
     };
 
     return (
-        <div>
-            <h2>Register</h2>
+    <div className="register-page">
+        <div className="register-container">
+            <h1>Register</h1>
             <form onSubmit={handleRegister}>
                 <div>
                     <label>Username:</label>
@@ -62,12 +72,14 @@ const Register = () => {
                         required
                     />
                 </div>
-                <button type="submit">Register</button>
+                <p className="error-message">{error}</p>
+                <button type="submit" id="register">Register</button>
             </form>
             <button type="button" onClick={() => navigate('/login')}>
                 Back to Login
             </button>
         </div>
+    </div>
     );
 };
 

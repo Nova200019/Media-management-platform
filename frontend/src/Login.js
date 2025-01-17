@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
+import './Login.css';
 
 const Login = () => {
     const { setIsAuthenticated } = useContext(AuthContext);
@@ -35,23 +36,25 @@ const Login = () => {
     };
 
     return (
-        <form onSubmit={handleLogin}>
-            <h1>Login</h1>
-            <div>
-                <label>Username:</label>
-                <input type="text" name="username" required />
-            </div>
-            <div>
-                <label>Password:</label>
-                <input type="password" name="password" required />
-            </div>
-            <button type="submit">Login</button>
-
-            {/* Add this button to navigate to the Register page */}
-            <button type="button" onClick={goToRegister}>
-                Register
-            </button>
-        </form>
+    <div className="login-page">
+        <div className="login-container">
+            <form onSubmit={handleLogin}>
+                <h1>Login</h1>
+                <div>
+                    <label>Username:</label>
+                    <input type="text" name="username" required />
+                </div>
+                <div>
+                    <label>Password:</label>
+                    <input type="password" name="password" required />
+                </div>
+                <button type="submit" id="login">Login</button>
+                <button type="button" onClick={goToRegister}>
+                    Register
+                </button>
+            </form>
+        </div>
+    </div>
     );
 };
 

@@ -3,16 +3,19 @@ import io from 'socket.io-client';
 import AddCameraForm from './components/AddCameraForm';
 import CameraConsole from './components/CameraConsole';
 import Hls from 'hls.js';
-import { AuthContext } from './AuthContext';
+import { AuthContext, setIsAuthenticated } from './AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
-
-const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:3000');
+const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:3000', {
+    extraHeaders: {
+       Authorization: `Bearer ${localStorage.getItem('token')}`
+    }
+});
 
 function App() {
     const [cameras, setCameras] = useState([]);
     const videoRefs = useRef({}); // Store references to video elements
     const streamUrls = useRef({}); // Store stream URLs by cameraId
-    const { isAuthenticated, isLoading } = useContext(AuthContext);
+    const { isAuthenticated, isLoading, setIsAuthenticated } = useContext(AuthContext);
     const token = localStorage.getItem('token');
     const navigate = useNavigate();   
   
@@ -23,6 +26,12 @@ function App() {
             navigate('/login');
         }
     }, [isAuthenticated, isLoading, navigate]); 
+
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+        localStorage.removeItem('token');
+        navigate('/login');
+    };
 
     useEffect(() => {
         // Load existing cameras from backend on mount
@@ -104,43 +113,26 @@ function App() {
         }
     };
 
-    
     if(isLoading)
         return(
             <div>Loading...</div>
     )
 
     return ( isAuthenticated ? (
-        <
-        div >
-        <
-        h1 > Camera Management < /h1> <
-        AddCameraForm onAdd = { handleAddCamera }
-        /> <
-        div > {
-            cameras.map((camera) => ( <
-                div key = { camera._id } >
-                <
-                CameraConsole camera = { camera }
-                onStart = { handleStartStream }
-                onStop = { handleStopStream }
-                onRecord = { handleRecordStream }
-                /> <
-                video ref = {
-                    (el) => (videoRefs.current[camera._id] = el) }
-                id = { `video-${camera._id}` }
-                width = "640"
-                height = "480"
-                controls /
-                >
-                <
-                /div>
-            ))
-        } <
-        /div> <
-        /div>
-    
-) : (  <Navigate to="/login" />)
+        <div>
+            <h1>Camera Management</h1>
+            <button onClick={handleLogout}>Logout</button>
+            <AddCameraForm onAdd={handleAddCamera} />
+            <div>
+                {cameras.map((camera) => (
+                    <div key={camera._id}>
+                        <CameraConsole camera={camera} onStart={handleStartStream} onStop={handleStopStream} onRecord={handleRecordStream} />
+                        <video ref={(el) => (videoRefs.current[camera._id] = el)} id={`video-${camera._id}`} width="640" height="480" controls />
+                    </div>
+                ))}
+            </div>
+        </div>
+    ) : (  <Navigate to="/login" />)
 )}
 
 export default App;
