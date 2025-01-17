@@ -11,12 +11,13 @@ let socket;
 function App() {
     const [cameras, setCameras] = useState([]);
     const [username, setUsername] = useState('');
+    const [shareCameraId, setShareCameraId] = useState(null);
+    const [shareUsername, setShareUsername] = useState('');
     const videoRefs = useRef({}); // Store references to video elements
     const streamUrls = useRef({}); // Store stream URLs by cameraId
     const { isAuthenticated, isLoading, setIsAuthenticated } = useContext(AuthContext);
     const token = localStorage.getItem('token');
     const navigate = useNavigate();   
-    
 
     useEffect(() => {
         // Redirect to /login if user is not authenticated after loading
@@ -57,15 +58,11 @@ function App() {
         }
     }, [isAuthenticated]);
 
-
-    
     const handleLogout = () => {
         setIsAuthenticated(false);
         localStorage.removeItem('token');
         navigate('/login');
     };
-
-
 
     const handleAddCamera = (camera) => {
         socket.emit('addCamera', camera, ({ success, camera }) => {
@@ -80,6 +77,18 @@ function App() {
                 console.log(`Camera ${cameraId} deleted successfully`);
             } else {
                 console.error('Failed to delete camera');
+            }
+        });
+    };
+
+    const handleShareCamera = (cameraId, username) => {
+        socket.emit('shareCamera', { cameraId: cameraId.toString(), username }, (response) => {
+            if (response.success) {
+                console.log(`Camera ${cameraId} shared with ${username}`);
+                setShareCameraId(null);
+                setShareUsername('');
+            } else {
+                console.error('Failed to share camera');
             }
         });
     };
@@ -140,12 +149,31 @@ function App() {
         }
     };
 
-    if(isLoading)
-        return(
-            <div>Loading...</div>
-    )
+    const handleOpenShareBox = (cameraId) => {
+        if (shareCameraId === cameraId) {
+            setShareCameraId(null);
+        } else {
+            setShareCameraId(cameraId);
+        }
+    };
 
-    return ( isAuthenticated ? (
+    const handleShareInputChange = (e) => {
+        setShareUsername(e.target.value);
+    };
+
+    const handleShareSubmit = (e) => {
+        e.preventDefault();
+        if (shareCameraId && shareUsername) {
+            handleShareCamera(shareCameraId, shareUsername);
+        }
+    };
+
+    if (isLoading)
+        return (
+            <div>Loading...</div>
+        );
+
+    return (isAuthenticated ? (
         <div>
             <h1>Camera Management</h1>
             <p>Welcome, {username}!</p>
@@ -154,13 +182,26 @@ function App() {
             <div>
                 {cameras.map((camera) => (
                     <div key={camera._id}>
-                        <CameraConsole camera={camera} onStart={handleStartStream} onStop={handleStopStream} onRecord={handleRecordStream} onDelete={handleDeleteCamera}/>
+                        <CameraConsole camera={camera} onStart={handleStartStream} onStop={handleStopStream} onRecord={handleRecordStream} onDelete={handleDeleteCamera} />
                         <video ref={(el) => (videoRefs.current[camera._id] = el)} id={`video-${camera._id}`} width="640" height="480" controls />
+                            <br />
+                        <button onClick={() => handleOpenShareBox(camera._id)}>
+                            {shareCameraId === camera._id ? 'Cancel' : 'Share'}
+                        </button>
+                        {shareCameraId === camera._id && (
+                            <div>
+                                <form onSubmit={handleShareSubmit}>
+                                    <input type="text" value={shareUsername} onChange={handleShareInputChange} placeholder="Enter username to share with" />
+                                    <button type="submit">Share</button>
+                                </form>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
         </div>
-    ) : (  <Navigate to="/login" />)
-)}
+    ) : (<Navigate to="/login" />)
+    );
+}
 
 export default App;

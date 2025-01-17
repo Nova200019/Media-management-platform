@@ -315,6 +315,22 @@ socket.on('deleteCamera', async ({ cameraId }, callback) => {
   callback({ success: true });
 });
 
+socket.on('shareCamera', async ({ cameraId, username }, callback) => {
+  const token = socket.handshake.headers.authorization.split(' ')[1];
+  const decodedToken = jwt.decode(token);
+  const userID = decodedToken.data.userID;
+
+  const camera = await Camera.findOne({ _id: cameraId, userID });
+  if (!camera) return callback({ error: 'Camera not found or not authorized' });
+
+  const userToShareWith = await findUser(username);
+  if (!userToShareWith) return callback({ error: 'User to share with not found' });
+    const newCamera = new Camera({ name: decodedToken.data.username+'sCamera', rtspUrl: camera.rtspUrl, userID: userToShareWith.uuid });
+ 
+    await newCamera.save();
+  callback({ success: true });
+});
+
 socket.on('startStream', async ({ cameraId }, callback) => {
   const token = socket.handshake.headers.authorization.split(' ')[1];
   const decodedToken = jwt.decode(token);
