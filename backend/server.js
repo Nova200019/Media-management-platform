@@ -13,7 +13,6 @@ const passportJwt = require('passport-jwt')
 const req = require('express/lib/request');
 const jwt = require('jsonwebtoken')
 const cors = require('cors');
-const { log } = require('console');
 const { Logger } = require('winston');
 const mysql = require('mysql2');
 const { v4: uuidv4 } = require('uuid');
