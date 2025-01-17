@@ -15,12 +15,12 @@ services:
       - MYSQL_DATABASE=user_management
       - STREAM_BASE_URL=http://localhost:3000
       - STREAM_VOLUME_PATH=/video-storage
-      - JWT_SECRET=v6k5rosZ5cprLTChxj5wEbGO8h4XHGPe
+      - JWT_SECRET=s3cUr3!t0k3n#s3cr3t@1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ
     volumes:
       - video-storage:/video-storage
     depends_on:
-      - mongo
-      - mysql
+       mysql:
+        condition: service_healthy
     networks:
       - app-network
 
@@ -43,6 +43,11 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pyourpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
 

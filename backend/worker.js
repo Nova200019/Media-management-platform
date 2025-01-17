@@ -20,5 +20,4 @@ const createWorker = async() => {
     logger.info('Mediasoup worker created [pid:%d]', worker.pid);
     return worker;
 };
-
 module.exports = { createWorker };

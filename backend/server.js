@@ -55,6 +55,26 @@ const io = socketIo(server, {
         methods: ["GET", "POST"]
     }
 });
+
+// JWT strategy options
+const jwtDecodeOptions = {
+  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+  secretOrKey: jwtSecret,
+};
+
+// Configure passport to use JWT strategy
+passport.use(
+  new JwtStrategy(jwtDecodeOptions, (payload, done) => {
+    const user = findUser(payload.data.username);
+    if (user) {
+      return done(null, user);
+    } else {
+      return done(null, false);
+    }
+  }),
+);
+
+// Use passport middleware
 io.engine.use((req, res, next) => {
   const isHandshake = req._query.sid === undefined;
   if (isHandshake) {
@@ -85,10 +105,10 @@ const db = mysql.createConnection({
 // Connect to MySQL database
 db.connect((err) => {
   if (err) {
-      console.error('Error connecting to the MySQL database:', err);
+      logger.info('Error connecting to the MySQL database:', err);
       return;
   }
-  console.log('Connected to the MySQL database.');
+  logger.info('Connected to the MySQL database.');
 
   // Create users table if it doesn't exist
   const createUsersTable = `
@@ -101,9 +121,9 @@ db.connect((err) => {
   `;
   db.query(createUsersTable, (err, results) => {
       if (err) {
-          console.error('Error creating users table:', err);
+          logger.info('Error creating users table:', err);
       } else {
-          console.log('Users table created or already exists.');
+          logger.info('Users table created or already exists');
       }
   });
 });
@@ -147,7 +167,7 @@ app.get(
 app.get("/users", (req, res) => {
   db.query('SELECT * FROM users', (err, results) => {
     if (err) {
-      console.error('Error querying database:', err);
+      logger.info('Error querying database:', err);
       return res.status(500).json({ message: 'Internal server error' });
     }
     res.json(results);
@@ -159,7 +179,7 @@ app.get('/cameras', async (req, res) => {
     const cameras = await Camera.find();
     res.status(200).json(cameras);
   } catch (error) {
-    console.error('Error fetching cameras:', error);
+    logger.info('Error fetching cameras:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -168,10 +188,9 @@ async function findUser(username) {
   return new Promise((resolve, reject) => {
     db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
       if (err) {
-        console.error('Error querying database:', err);
+        logger.info('Error querying database:', err);
         return reject(err);
       }
-      console.log('User query results:', results);
       resolve(results[0]);
     });
   });
@@ -181,29 +200,26 @@ async function findUser(username) {
 app.post("/login", async (req, res) => {
   const user = await findUser(req.body.username);
   if (!user) {
-    console.log("wrong credentials 1");
     return res.status(401).json({ message: 'Invalid credentials.' });
   }
   try {
     if (await bcrypt.compare(req.body.password, user.password)) {
-      console.log("authentication OK");
+      logger.info("Authentication OK");
       const token = jwt.sign(
         {
           data: {username: user.username, userID: user.uuid},
         },
         jwtSecret,
         {
-          expiresIn: "1h",
+          expiresIn: "24h",
         },
       );
       
       res.status(200).json({ token });
     } else {
-      console.log("wrong credentials 2");
       res.status(401).json({ message: 'Invalid credentials.' });
     }
   } catch (e) {
-    console.log("wrong password?");
     res.status(401).json({ message: 'Invalid credentials.' });
   }
 });
@@ -211,10 +227,9 @@ app.post("/login", async (req, res) => {
 // API route for user registration
 app.post('/register', async (req, res) => {
   try {
-    logger.info('Secret: ' + jwtSecret);
     const existingUser = await findUser(req.body.username);
     if (existingUser) {
-      console.log('User already exists');
+      logger.info('User already exists');
       return res.status(409).json({ message: 'User already exists' }); // Conflict status code
     }
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
@@ -224,11 +239,10 @@ app.post('/register', async (req, res) => {
       password: hashedPassword,
       uuid: uuid
     };
-    logger.info('New user:', newUser);
     //Insert user into database
     db.query('INSERT INTO users (uuid, username, password) VALUES (?, ?, ?)', [newUser.uuid, newUser.username, newUser.password], (err, results) => {
       if (err) {
-        console.error('Error inserting user into database:', err);
+        logger.info('Error inserting user into database:', err);
         return res.status(500).json({ message: 'Internal server error' });
       }
       // Generate JWT token
@@ -242,50 +256,32 @@ app.post('/register', async (req, res) => {
         },
       );
       // Send token to client
-      logger.info(token);
       res.status(200).json({ token });
     });
   } catch (error) {
-    console.error('Error during registration:', error);
+    logger.info('Error during registration:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
 
-const jwtDecodeOptions = {
-  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: jwtSecret,
-};
-
-// Configure passport to use JWT strategy
-passport.use(
-  new JwtStrategy(jwtDecodeOptions, (payload, done) => {
-    const user = findUser(payload.data.username);
-    if (user) {
-      return done(null, user);
-    } else {
-      return done(null, false);
-    }
-  }),
-);
 
 // Serve frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 
+function getUserIDFromSocket(socket) {
+  const token = socket.handshake.headers.authorization.split(' ')[1];
+  const decodedToken = jwt.decode(token);
+  return decodedToken.data.userID;
+}
+
 // Socket.io handlers
 io.on('connection', (socket) => {
     logger.info('Client connected');
-
     socket.on('loadCameras', async (callback) => {
-      const token = socket.handshake.headers.authorization.split(' ')[1];
-      logger.info(token)
-      const decodedToken = jwt.decode(token);
-      const userID = decodedToken.data.userID;
-      logger.info("on connection data: "+ decodedToken.data);
-      logger.info("on connection uuid: "+ userID);
+      const userID = getUserIDFromSocket(socket);
       const cameras = await Camera.find({ userID });
-      logger.info("cameras: "+ cameras);
       callback(cameras);
   });
 
@@ -293,8 +289,7 @@ io.on('connection', (socket) => {
     const token = socket.handshake.headers.authorization.split(' ')[1];
     const decodedToken = jwt.decode(token);
     const userID = decodedToken.data.userID;
-    logger.info("addCamera UUID: " +userID);
-    const camera = new Camera({ name, rtspUrl, userID: userID });
+    const camera = new Camera({ name, rtspUrl, userID });
     await camera.save();
     callback({ success: true, camera });
 });
@@ -303,7 +298,6 @@ socket.on('startStream', async ({ cameraId }, callback) => {
   const token = socket.handshake.headers.authorization.split(' ')[1];
   const decodedToken = jwt.decode(token);
       const userID = decodedToken.data.userID;
-  logger.info("startStream UUID: " + userID);
   const camera = await Camera.findOne({ _id: cameraId, userID });
   if (!camera) return callback({ error: 'Camera not found or not authorized' });
 
