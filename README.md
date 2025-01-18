@@ -70,22 +70,6 @@ To run the application using Docker, follow these steps:
          - `200 OK`: Returns the authenticated user's information.
          - `401 Unauthorized`: If the token is invalid or missing.
 
-      ### `GET /users`
-
-      Fetches all users from the MySQL database. (For testing purposes)
-
-      - **Responses:**
-         - `200 OK`: Returns a list of users.
-         - `500 Internal Server Error`: If there is an error querying the database.
-
-      ### `GET /cameras`
-
-      Fetches all cameras from the MongoDB database.
-
-      - **Responses:**
-         - `200 OK`: Returns a list of cameras.
-         - `500 Internal Server Error`: If there is an error fetching cameras.
-
       ### `POST /login`
 
       Authenticates a user and returns a JWT token.

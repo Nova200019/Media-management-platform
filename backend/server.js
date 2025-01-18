@@ -167,29 +167,6 @@ app.get(
   },
 );
 
-
-//FOR TESTING PURPOSES:
-app.get("/users", (req, res) => {
-  db.query('SELECT * FROM users', (err, results) => {
-    if (err) {
-      logger.info('Error querying database:', err);
-      return res.status(500).json({ message: 'Internal server error' });
-    }
-    res.json(results);
-  });
-});
-
-
-app.get('/cameras', async (req, res) => {
-  try {
-    const cameras = await Camera.find();
-    res.status(200).json(cameras);
-  } catch (error) {
-    logger.info('Error fetching cameras:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
 // Function to find user in MySQL database
 async function findUser(username) {
   return new Promise((resolve, reject) => {
