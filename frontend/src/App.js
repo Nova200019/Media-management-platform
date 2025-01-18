@@ -87,8 +87,10 @@ function App() {
                 console.log(`Camera ${cameraId} shared with ${username}`);
                 setShareCameraId(null);
                 setShareUsername('');
+                alert(`Camera shared with ${username} successfully!`);
             } else {
                 console.error('Failed to share camera');
+                alert(`Failed to share camera with ${username}: ${response.error || 'Unknown error'}`);
             }
         });
     };
