@@ -297,29 +297,21 @@ io.on('connection', (socket) => {
   });
 
   socket.on('addCamera', async ({ name, rtspUrl }, callback) => {
-    const token = socket.handshake.headers.authorization.split(' ')[1];
-    const decodedToken = jwt.decode(token);
-    const userID = decodedToken.data.userID;
+    const userID = getUserIDFromSocket(socket);
     const camera = new Camera({ name, rtspUrl, userID });
     await camera.save();
     callback({ success: true, camera });
 });
 
 socket.on('deleteCamera', async ({ cameraId }, callback) => {
-  const token = socket.handshake.headers.authorization.split(' ')[1];
-  const decodedToken = jwt.decode(token);
-  const userID = decodedToken.data.userID;
-
+  const userID = getUserIDFromSocket(socket);
   const camera = await Camera.findOneAndDelete({ _id: cameraId, userID });
   if (!camera) return callback({ error: 'Camera not found or not authorized' });
   callback({ success: true });
 });
 
 socket.on('shareCamera', async ({ cameraId, username }, callback) => {
-  const token = socket.handshake.headers.authorization.split(' ')[1];
-  const decodedToken = jwt.decode(token);
-  const userID = decodedToken.data.userID;
-
+  const userID = getUserIDFromSocket(socket);
   const camera = await Camera.findOne({ _id: cameraId, userID });
   if (!camera) return callback({ error: 'Camera not found or not authorized' });
 
@@ -332,9 +324,7 @@ socket.on('shareCamera', async ({ cameraId, username }, callback) => {
 });
 
 socket.on('startStream', async ({ cameraId }, callback) => {
-  const token = socket.handshake.headers.authorization.split(' ')[1];
-  const decodedToken = jwt.decode(token);
-      const userID = decodedToken.data.userID;
+  const userID = getUserIDFromSocket(socket);
   const camera = await Camera.findOne({ _id: cameraId, userID });
   if (!camera) return callback({ error: 'Camera not found or not authorized' });
 
@@ -356,10 +346,7 @@ socket.on('startStream', async ({ cameraId }, callback) => {
 
 
     socket.on('stopStream', async ({ cameraId }, callback) => {
-      const token = socket.handshake.headers.authorization.split(' ')[1];
-      const decodedToken = jwt.decode(token);
-      const userID = decodedToken.data.userID;
-
+      const userID = getUserIDFromSocket(socket);
       const camera = await Camera.findOne({ _id: cameraId, userID });
       if (!camera) return callback({ error: 'Camera not found or not authorized' });
 
