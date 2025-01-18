@@ -11,7 +11,8 @@
         "react-router-dom": "^7.1.1",
         "react-scripts": "5.0.1",
         "socket.io-client": "^4.8.1",
-        "web-vitals": "^2.1.4"
+        "web-vitals": "^2.1.4",
+        "axios": "^1.4.0"
     },
     "devDependencies": {
         "@babel/plugin-proposal-private-property-in-object": "^7.18.6"

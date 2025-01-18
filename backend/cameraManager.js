@@ -26,11 +26,14 @@ const startHLSPipeline = (rtspUrl, outputPath, cameraName) => {
 
     pipelines.set(rtspUrl, pipeline);
 };
-const startRecordingPipeline = (rtspUrl, filePath) => {
-    const command = `gst-launch-1.0 rtspsrc location=${rtspUrl} latency=200 ! rtph264depay ! h264parse ! mp4mux ! filesink location=${filePath}`;
 
+const startRecordingPipeline = (rtspUrl, filePath) => {
+  const command = `gst-launch-1.0 rtspsrc location=${rtspUrl} latency=1000 protocols=4 do-retransmission=true ! ` +
+        `rtpjitterbuffer do-lost=true ! rtph264depay ! capsfilter caps="video/x-h264,stream-format=(string)avc,alignment=(string)au" ! ` +
+        `h264parse ! mpegtsmux ! filesink location=${filePath}`;
     logger.info(`Starting recording pipeline with command: ${command}`);
 
+    // Execute the pipeline
     const pipeline = child_process.exec(command, (err, stdout, stderr) => {
         if (err) {
             logger.error(`Recording Pipeline error: ${stderr}`);
@@ -39,6 +42,7 @@ const startRecordingPipeline = (rtspUrl, filePath) => {
         logger.info(`Recording Pipeline stdout: ${stdout}`);
     });
 
+    // Attach event listeners
     pipeline.on('exit', (code, signal) => {
         logger.info(`Recording Pipeline exited with code ${code} and signal ${signal}`);
     });
@@ -47,9 +51,11 @@ const startRecordingPipeline = (rtspUrl, filePath) => {
         logger.error(`Recording Pipeline error: ${err}`);
     });
 
+    // Store the pipeline for later control (e.g., stop it)
     pipelines.set(rtspUrl, pipeline);
     return filePath;
 };
+
 const stopPipeline = (rtspUrl) => {
     if (pipelines.has(rtspUrl)) {
         pipelines.get(rtspUrl).kill();

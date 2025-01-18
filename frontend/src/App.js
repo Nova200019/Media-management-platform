@@ -6,18 +6,22 @@ import Hls from 'hls.js';
 import { AuthContext } from './AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-
+import './App.css';
+import axios from 'axios';
 let socket;
+
 function App() {
     const [cameras, setCameras] = useState([]);
     const [username, setUsername] = useState('');
     const [shareCameraId, setShareCameraId] = useState(null);
     const [shareUsername, setShareUsername] = useState('');
+    const [loadingCamera, setLoadingCamera] = useState(null); // Tracks camera loading state
+    const [recordingCameraId, setRecordingCameraId] = useState(null); // Tracks recording state
     const videoRefs = useRef({}); // Store references to video elements
     const streamUrls = useRef({}); // Store stream URLs by cameraId
     const { isAuthenticated, isLoading, setIsAuthenticated } = useContext(AuthContext);
     const token = localStorage.getItem('token');
-    const navigate = useNavigate();   
+    const navigate = useNavigate();
 
     useEffect(() => {
         // Redirect to /login if user is not authenticated after loading
@@ -25,7 +29,7 @@ function App() {
             console.log('User is not authenticated, redirecting to /login.');
             navigate('/login');
         }
-    }, [isAuthenticated, isLoading, navigate]); 
+    }, [isAuthenticated, isLoading, navigate]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -95,14 +99,47 @@ function App() {
         });
     };
 
-    const handleStartStream = (cameraId) => {
-        socket.emit('startStream', { cameraId: cameraId.toString() }, (response) => {
+    const handleStartStream = async(cameraId) => {
+        setLoadingCamera(cameraId); // Show spinner for this camera
+        const camera = cameras.find((cam) => cam._id === cameraId);
+
+        socket.emit('startStream', { cameraId: cameraId.toString() }, async(response) => {
             if (response.success) {
                 console.log(`Stream started for camera ${cameraId}`);
+                try {
+                    // Wait for the stream URL or output.m3u8 file to become available
+                    await waitForStream(response.streamUrl);
+                    console.log(`Stream ready for camera ${cameraId}`);
+                    setupHlsPlayer(cameraId, response.streamUrl); // Set up the player with the stream URL
+                } catch (err) {
+                    console.error(`Failed to prepare stream for camera ${cameraId}: ${err}`);
+                }
+                setLoadingCamera(null); // Remove spinner
             } else {
                 console.error('Failed to start stream');
+                setLoadingCamera(null); // Remove spinner on failure
             }
         });
+    };
+
+    const waitForStream = async(streamUrl, maxRetries = 10, interval = 2000) => {
+        let retries = 0;
+
+        while (retries < maxRetries) {
+            try {
+                const response = await axios.head(streamUrl); // Check if the stream URL is available
+                if (response.status === 200) {
+                    return true; // Stream is available
+                }
+            } catch (err) {
+                console.log(`Stream not ready, retrying in ${interval / 1000} seconds...`);
+            }
+
+            retries++;
+            await new Promise((resolve) => setTimeout(resolve, interval));
+        }
+
+        throw new Error('Stream not ready after maximum retries');
     };
 
     const handleStopStream = (cameraId) => {
@@ -121,37 +158,56 @@ function App() {
     };
 
     const handleRecordStream = (cameraId) => {
+        // Check if the current camera is being recorded
+        const isRecording = recordingCameraId === cameraId;
+
+        // Emit record toggle event to the server
         socket.emit('recordStream', { cameraId: cameraId.toString(), toggle: true }, (response) => {
             if (response.success) {
-                console.log(`Recording started for ${cameraId}`);
+                // Update the state to toggle recording
+                setRecordingCameraId(isRecording ? null : cameraId);
             } else {
-                console.error('Failed to start recording');
+                alert('Failed to toggle recording');
             }
         });
     };
 
-    const setupHlsPlayer = (cameraId, streamUrl) => {
-        const videoElement = videoRefs.current[cameraId];
+const setupHlsPlayer = (cameraId, streamUrl) => {
+    const videoElement = videoRefs.current[cameraId];
 
-        if (Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(streamUrl);
-            hls.attachMedia(videoElement);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                videoElement.play();
-            });
-            hls.on(Hls.Events.ERROR, (_, data) => {
-                console.error('HLS error:', data);
-            });
-        } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-            videoElement.src = streamUrl;
-            videoElement.addEventListener('loadedmetadata', () => {
-                videoElement.play();
-            });
-        }
-    };
+    // Ensure video element is available
+    if (!videoElement) {
+        console.error(`Video element for camera ${cameraId} is not available.`);
+        return;
+    }
 
-    const handleOpenShareBox = (cameraId) => {
+    if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(streamUrl);
+        hls.attachMedia(videoElement);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (videoElement) {
+                videoElement.play().catch((err) => {
+                    console.error('Error while trying to play the video:', err);
+                });
+            }
+        });
+
+        hls.on(Hls.Events.ERROR, (_, data) => {
+            console.error('HLS error:', data);
+        });
+    } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+        videoElement.src = streamUrl;
+        videoElement.addEventListener('loadedmetadata', () => {
+            videoElement
+                .play()
+                .catch((err) => console.error('Error while trying to play the video:', err));
+        });
+    }
+};
+
+
+ const handleOpenShareBox = (cameraId) => {
         if (shareCameraId === cameraId) {
             setShareCameraId(null);
         } else {
@@ -171,38 +227,96 @@ function App() {
     };
 
     if (isLoading)
-        return (
-            <div>Loading...</div>
+        return ( <
+            div > Loading... < /div>
         );
 
-    return (isAuthenticated ? (
-        <div>
-            <h1>Camera Management</h1>
-            <p>Welcome, {username}!</p>
-            <button onClick={handleLogout}>Logout</button>
-            <AddCameraForm onAdd={handleAddCamera} />
-            <div>
-                {cameras.map((camera) => (
-                    <div key={camera._id}>
-                        <CameraConsole camera={camera} onStart={handleStartStream} onStop={handleStopStream} onRecord={handleRecordStream} onDelete={handleDeleteCamera} />
-                        <video ref={(el) => (videoRefs.current[camera._id] = el)} id={`video-${camera._id}`} width="640" height="480" controls />
-                            <br />
-                        <button onClick={() => handleOpenShareBox(camera._id)}>
+
+    return isAuthenticated ? (
+    <div className="App">
+        {/* Header Section */}
+        <div className="header">
+            <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+                <h1 className="app-title">Media Management Platform</h1> {/* App Title */}
+                <div className="vertical-separator"></div>
+                <div style={{display: "flex", alignItems: "center"}}>
+                    <p>Welcome, {username}!</p>
+                    <div className="vertical-separator"></div>
+                    <button className="logout" onClick={handleLogout}>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+        {/* Add Camera Form */}
+        <AddCameraForm onAdd={handleAddCamera} />
+        {/* Camera Grid */}
+        <div className="camera-grid">
+            {cameras.map((camera, index) => (
+                <React.Fragment key={camera._id}>
+                    <div className="camera-console">
+                        <h3>{camera.name}</h3>
+
+                                <video
+                                    ref={(el) => {
+                                        if (el && !videoRefs.current[camera._id]) {
+                                            videoRefs.current[camera._id] = el; // Assign video element
+                                            if (streamUrls.current[camera._id]) {
+                                                setupHlsPlayer(camera._id, streamUrls.current[camera._id]); // Initialize HLS player if the stream URL exists
+                                            }
+                                        }
+                                    }}
+                                    width="300"
+                                    height="200"
+                                    controls
+                                ></video>
+                        <div className="actions">
+                            <button onClick={() => handleStartStream(camera._id)}>
+                                Start Stream
+                            </button>
+                            <button onClick={() => handleStopStream(camera._id)}>
+                                Stop Stream
+                            </button>
+                            <button
+                                onClick={() => handleRecordStream(camera._id)}
+                                className={`record-button ${
+                                    recordingCameraId === camera._id ? "recording" : ""
+                                }`}
+                            >
+                                <span className="led"></span>
+                                {recordingCameraId === camera._id
+                                    ? "Stop Recording"
+                                    : "Record Stream"}
+                            </button>
+                            <button onClick={() => handleDeleteCamera(camera._id)}>
+                                Delete Camera
+                            </button>
+                            <button onClick={() => handleOpenShareBox(camera._id)}>
                             {shareCameraId === camera._id ? 'Cancel' : 'Share'}
                         </button>
                         {shareCameraId === camera._id && (
                             <div>
                                 <form onSubmit={handleShareSubmit}>
-                                    <input type="text" value={shareUsername} onChange={handleShareInputChange} placeholder="Enter username to share with" />
+                                    <input type="text" value={shareUsername} onChange={handleShareInputChange}
+                                           placeholder="Enter username to share with"/>
                                     <button type="submit">Share</button>
                                 </form>
                             </div>
                         )}
+                        </div>
+
                     </div>
-                ))}
-            </div>
+
+                    {/* Add Separator After Every Three Consoles */}
+                    {(index + 1) % 3 === 0 && index + 1 < cameras.length && (
+                        <div className="separator-line-grid"></div>
+                    )}
+                </React.Fragment>
+            ))}
         </div>
-    ) : (<Navigate to="/login" />)
+    </div>
+    ) : (
+        <Navigate to="/login"/>
     );
 }
 
