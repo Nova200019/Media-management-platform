@@ -1,170 +1,93 @@
-# Media-management-platform
+# Media Management Platform
 
-## Running the Application
+This project is a Media Management Platform that allows users to manage and stream video from multiple cameras. The application consists of a frontend built with React and a backend built with Node.js, Express, and Socket.IO. The backend integrates with MongoDB and MySQL for data storage.
 
-To run the application using Docker, follow these steps:
+## Features
 
-1. Ensure you have Docker installed on your machine. You can download it from [here](https://www.docker.com/products/docker-desktop).
+- **User Authentication**: Redirects unauthenticated users to the login page.
+- **Camera Management**: Add, delete, and share cameras.
+- **Live Streaming**: Start and stop live streams for each camera.
+- **Recording**: Record live streams.
+- **HLS Player**: Uses HLS.js to play video streams.
 
-2. Navigate to the project directory:
-     ```
-   cd /path/to/project-root
-   ```
-3. Start the application using Docker Compose:
- ```
- docker-compose up
- ```
-4. Access the application in your browser by visiting:
-  ```
-  http://localhost
-  ```
+## Components
 
-  ## Updating the Application
+### Frontend
 
-  After updating the frontend, follow these steps using Command Prompt to provide a new Build
+- **State Management**: Uses React hooks (`useState`, `useEffect`, `useRef`, `useContext`) to manage state and side effects.
+- **Socket.IO Integration**: Connects to the backend server using Socket.IO for real-time updates.
+- **Authentication**: Checks if the user is authenticated and redirects to the login page if not.
+- **Camera Operations**: Handles adding, deleting, sharing, starting, stopping, and recording camera streams.
+- **HLS Player Setup**: Configures HLS.js to play video streams.
 
-  1. Navigate to the project directory
-     ```
-     cd /path/to/project-root
-     ```
-  2. Navigate to the frontend
-       ```
-      cd ./frontend
-       ```
-  3. Run the new build
-       ```
-      npm run build
-      ```
-  4. Remove the old build
-        ```
-      rmdir /s /q ..\backend\build
-      ```
-  5. Move the new build into the backend
-     ```
-      move build ..\backend
-      ```
+### Backend
 
-      # API Documentation
+- **Express Server**: Sets up an Express server to handle HTTP requests.
+- **Socket.IO Integration**: Integrates Socket.IO for real-time communication with the frontend.
+- **MongoDB Connection**: Connects to MongoDB to store camera data.
+- **MySQL Connection**: Connects to MySQL to store user data.
+- **User Authentication**: Uses Passport.js with JWT strategy for user authentication.
+- **Camera Operations**: Handles adding, deleting, sharing, starting, stopping, and recording camera streams.
+- **HLS Streaming**: Uses HLS to stream video from cameras.
 
-      ## Endpoints
+## How It Works
 
-      ### `GET /`
+1. **Authentication**: On mount, the app checks if the user is authenticated. If not, it redirects to the login page.
+2. **Socket Connection**: If authenticated, the app connects to the backend server using Socket.IO and loads existing cameras.
+3. **Camera Management**: Users can add, delete, and share cameras using the provided form and buttons.
+4. **Live Streaming**: Users can start and stop live streams for each camera. The app waits for the stream URL to become available before setting up the HLS player.
+5. **Recording**: Users can toggle recording for each camera stream.
+6. **HLS Player**: The app uses HLS.js to play video streams in supported browsers.
 
-      Serves the frontend application.
+## Docker Setup Guide
 
-      ### `GET /login`
+To set up the Media Management Platform using Docker, follow these steps:
 
-      Serves the login page of the frontend application.
+1. **Clone the Repository**:
+    ```sh
+    git clone https://github.com/your-repo/media-management-platform.git
+    cd media-management-platform
+    ```
 
-      ### `GET /register`
+2. **Build the Docker Images**:
+    ```sh
+    docker-compose build
+    ```
 
-      Serves the registration page of the frontend application.
+3. **Start the Containers**:
+    ```sh
+    docker-compose up
+    ```
 
-      ### `GET /self`
+4. **Access the Application**:
+    - Frontend: Open your browser and navigate to `http://localhost:80`
+    - Backend: The backend server will be running on `http://localhost:3000`
 
-      Verifies the JWT token and returns the authenticated user's information.
+## Manual Setup Guide
 
-      - **Headers:**
-         - `Authorization: Bearer <token>`
-      - **Responses:**
-         - `200 OK`: Returns the authenticated user's information.
-         - `401 Unauthorized`: If the token is invalid or missing.
+1. **Install Dependencies**:
+    ```sh
+    npm install
+    ```
 
-      ### `GET /users`
+2. **Build the Frontend**:
+    ```sh
+    npm run build
+    ```
 
-      Fetches all users from the MySQL database. (For testing purposes)
+3. **Move the Build to the Backend**:
+    ```sh
+    move build ..\backend
+    ```
 
-      - **Responses:**
-         - `200 OK`: Returns a list of users.
-         - `500 Internal Server Error`: If there is an error querying the database.
+4. **Start the Backend Server**:
+    ```sh
+    cd backend
+    npm start
+    ```
 
-      ### `GET /cameras`
+5. **Access the Application**:
+    - Frontend: Open your browser and navigate to `http://localhost`
+    - Backend: The backend server will be running on `http://localhost:3000`
 
-      Fetches all cameras from the MongoDB database.
-
-      - **Responses:**
-         - `200 OK`: Returns a list of cameras.
-         - `500 Internal Server Error`: If there is an error fetching cameras.
-
-      ### `POST /login`
-
-      Authenticates a user and returns a JWT token.
-
-      - **Request Body:**
-         - `username`: The username of the user.
-         - `password`: The password of the user.
-      - **Responses:**
-         - `200 OK`: Returns a JWT token.
-         - `401 Unauthorized`: If the credentials are invalid.
-
-      ### `POST /register`
-
-      Registers a new user and returns a JWT token.
-
-      - **Request Body:**
-         - `username`: The username of the user.
-         - `password`: The password of the user.
-      - **Responses:**
-         - `200 OK`: Returns a JWT token.
-         - `409 Conflict`: If the user already exists.
-         - `500 Internal Server Error`: If there is an error during registration.
-
-      ### `GET /streams`
-
-      Serves HLS streams with CORS headers.
-
-      - **Responses:**
-         - `200 OK`: Returns the requested stream.
-         - `404 Not Found`: If the stream is not found.
-
-      ### `GET *`
-
-      Serves a 404 Not Found page for any unspecified routes.
-
-      - **Responses:**
-         - `404 Not Found`: If the route is not found.
-
-      ## Socket.io Events
-
-      ### `connection`
-
-      Handles a new client connection.
-
-      ### `loadCameras`
-
-      Loads cameras for the authenticated user.
-
-      - **Callback:**
-         - `cameras`: A list of cameras for the authenticated user.
-
-      ### `addCamera`
-
-      Adds a new camera for the authenticated user.
-
-      - **Parameters:**
-         - `name`: The name of the camera.
-         - `rtspUrl`: The RTSP URL of the camera.
-      - **Callback:**
-         - `success`: Indicates if the camera was added successfully.
-         - `camera`: The added camera.
-
-      ### `startStream`
-
-      Starts streaming for a specified camera.
-
-      - **Parameters:**
-         - `cameraId`: The ID of the camera to start streaming.
-      - **Callback:**
-         - `success`: Indicates if the stream was started successfully.
-         - `streamUrl`: The URL of the HLS stream.
-         - `error`: If the camera is not found or not authorized.
-
-      ### `stopStream`
-
-      Stops streaming for a specified camera.
-
-      - **Parameters:**
-         - `cameraId`: The ID of the camera to stop streaming.
-      - **Callback:**
-         - `success`: Indicates if the stream was stopped successfully.
-         - `error`: If the camera is not found or not authorized.
+This setup guide provides instructions for setting up the Media Management Platform using Docker and accessing the frontend via `http://localhost`.
