@@ -1,70 +1,47 @@
-# Getting Started with Create React App
+# Media Management Platform Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This frontend code is for a Media Management Platform that allows users to manage and stream video from multiple cameras. The application is built using React and integrates with a backend server via Socket.IO for real-time communication.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **User Authentication**: Redirects unauthenticated users to the login page.
+- **Camera Management**: Add, delete, and share cameras.
+- **Live Streaming**: Start and stop live streams for each camera.
+- **Recording**: Record live streams.
+- **HLS Player**: Uses HLS.js to play video streams.
 
-### `npm start`
+## Components
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### `App.js`
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **State Management**: Uses React hooks (`useState`, `useEffect`, `useRef`, `useContext`) to manage state and side effects.
+- **Socket.IO Integration**: Connects to the backend server using Socket.IO for real-time updates.
+- **Authentication**: Checks if the user is authenticated and redirects to the login page if not.
+- **Camera Operations**: Handles adding, deleting, sharing, starting, stopping, and recording camera streams.
+- **HLS Player Setup**: Configures HLS.js to play video streams.
 
-### `npm test`
+### `AddCameraForm.js`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Form Component**: Provides a form to add new cameras.
 
-### `npm run build`
+### `CameraConsole.js`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- **Camera Console**: Displays individual camera controls and video streams.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## How It Works
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. **Authentication**: On mount, the app checks if the user is authenticated. If not, it redirects to the login page.
+2. **Socket Connection**: If authenticated, the app connects to the backend server using Socket.IO and loads existing cameras.
+3. **Camera Management**: Users can add, delete, and share cameras using the provided form and buttons.
+4. **Live Streaming**: Users can start and stop live streams for each camera. The app waits for the stream URL to become available before setting up the HLS player.
+5. **Recording**: Users can toggle recording for each camera stream.
+6. **HLS Player**: The app uses HLS.js to play video streams in supported browsers.
 
-### `npm run eject`
+## Usage
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. **Start the App**: Run the app in development mode using `npm start`.
+2. **Add Cameras**: Use the form to add new cameras.
+3. **Manage Streams**: Start, stop, and record live streams using the provided buttons.
+4. **Share Cameras**: Share cameras with other users by entering their username.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+This frontend code provides a comprehensive interface for managing and streaming video from multiple cameras in a media management platform.
