@@ -23,15 +23,21 @@
     color: #333;
 }
 
+.login-container form div {
+    width: 100%;
+}
+
 .login-container input[type="text"],
-.login-container input[type="password"],
-.login-container button {
-    width: calc(100% - 1.25em); /* Adjust width to account for padding */
+.login-container input[type="password"] {
+    width: 100%; /* Set width to 100% */
     padding: 0.625em;
     margin: 0.625em 0;
     border: 0.0625em solid #ccc;
     border-radius: 0.25em;
+    box-sizing: border-box; /* Ensure padding and border are included in the width */
 }
+
+
 
 .login-container button {
     background-color: #007bff;

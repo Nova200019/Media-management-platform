@@ -283,6 +283,13 @@ function getUserIDFromSocket(socket) {
     return decodedToken.data.userID;
 }
 
+// Helper function to get username from socket
+    function getUsernameFromSocket(socket) {
+    const token = socket.handshake.headers.authorization.split(' ')[1];
+    const decodedToken = jwt.decode(token);;
+    return decodedToken.data.username;
+}
+
 // Socket.io handlers
 io.on('connection', (socket) => {
     logger.info('Client connected');
@@ -310,7 +317,7 @@ socket.on('shareCamera', async ({ cameraId, username }, callback) => {
     try {
         // Extract the userID from the socket or a relevant method
         const userID = getUserIDFromSocket(socket);
-
+        const sharingUser = getUsernameFromSocket(socket);
         // Validate if the camera exists and belongs to the current user
         const camera = await Camera.findOne({ _id: cameraId, userID });
         if (!camera) {
@@ -325,7 +332,7 @@ socket.on('shareCamera', async ({ cameraId, username }, callback) => {
 
         // Create a shared camera entry for the target user
         const newCamera = new Camera({
-            name: `${camera.name}-shared-by-${userID}`,
+            name: `${camera.name}-shared-by-${sharingUser}`,
             rtspUrl: camera.rtspUrl,
             userID: userToShareWith.uuid
         });
@@ -374,6 +381,7 @@ socket.on('recordStream', async ({ cameraId, toggle }, callback) => {
 
     socket.on('startStream', async({ cameraId }, callback) => {
         const userID = getUserIDFromSocket(socket);
+        const username = await getUsernameFromSocket(socket);
         const camera = await Camera.findOne({ _id: cameraId, userID });
         if (!camera) return callback({ error: 'Camera not found or not authorized' });
 
