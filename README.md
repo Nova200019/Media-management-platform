@@ -89,5 +89,6 @@ To set up the Media Management Platform using Docker, follow these steps:
 5. **Access the Application**:
     - Frontend: Open your browser and navigate to `http://localhost`
     - Backend: The backend server will be running on `http://localhost:3000`
+    - Or you can change them using environment variables used in compose
 
 This setup guide provides instructions for setting up the Media Management Platform using Docker and accessing the frontend via `http://localhost`.
