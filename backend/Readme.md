@@ -46,129 +46,127 @@ This backend code is for a Media Management Platform that allows users to manage
 
 # API Documentation
 
-     ## Endpoints
+## Endpoints
 
-      ### `GET /`
+### `GET /`
 
-      Serves the frontend application.
+Serves the frontend application.
 
-      ### `GET /login`
+### `GET /login`
 
-      Serves the login page of the frontend application.
+Serves the login page of the frontend application.
 
-      ### `GET /register`
+### `GET /register`
 
-      Serves the registration page of the frontend application.
+Serves the registration page of the frontend application.
 
-      ### `GET /self`
+### `GET /self`
 
-      Verifies the JWT token and returns the authenticated user's information.
+Verifies the JWT token and returns the authenticated user's information.
 
-      - **Headers:**
-         - `Authorization: Bearer <token>`
-      - **Responses:**
-         - `200 OK`: Returns the authenticated user's information.
-         - `401 Unauthorized`: If the token is invalid or missing.
+- **Headers:**
+- `Authorization: Bearer <token>`
+- **Responses:**
+- `200 OK`: Returns the authenticated user's information.
+- `401 Unauthorized`: If the token is invalid or missing.
 
-      ### `GET /users`
+### `GET /users`
 
-      Fetches all users from the MySQL database. (For testing purposes)
+Fetches all users from the MySQL database. (For testing purposes)
 
-      - **Responses:**
-         - `200 OK`: Returns a list of users.
-         - `500 Internal Server Error`: If there is an error querying the database.
+- **Responses:**
+- `200 OK`: Returns a list of users.
+- `500 Internal Server Error`: If there is an error querying the database.
 
-      ### `GET /cameras`
+### `GET /cameras`
 
-      Fetches all cameras from the MongoDB database.
+Fetches all cameras from the MongoDB database.
 
-      - **Responses:**
-         - `200 OK`: Returns a list of cameras.
-         - `500 Internal Server Error`: If there is an error fetching cameras.
+- **Responses:**
+- `200 OK`: Returns a list of cameras.
+- `500 Internal Server Error`: If there is an error fetching cameras.
 
-      ### `POST /login`
+### `POST /login`
 
-      Authenticates a user and returns a JWT token.
+Authenticates a user and returns a JWT token.
+- **Request Body:**
+- `username`: The username of the user.
+- `password`: The password of the user.
+- **Responses:**
+- `200 OK`: Returns a JWT token.
+- `401 Unauthorized`: If the credentials are invalid.
 
-      - **Request Body:**
-         - `username`: The username of the user.
-         - `password`: The password of the user.
-      - **Responses:**
-         - `200 OK`: Returns a JWT token.
-         - `401 Unauthorized`: If the credentials are invalid.
+### `POST /register`
 
-      ### `POST /register`
+Registers a new user and returns a JWT token.
 
-      Registers a new user and returns a JWT token.
+- **Request Body:**
+- `username`: The username of the user.
+- `password`: The password of the user.
+- **Responses:**
+- `200 OK`: Returns a JWT token.
+- `409 Conflict`: If the user already exists.
+- `500 Internal Server Error`: If there is an error during registration.
 
-      - **Request Body:**
-         - `username`: The username of the user.
-         - `password`: The password of the user.
-      - **Responses:**
-         - `200 OK`: Returns a JWT token.
-         - `409 Conflict`: If the user already exists.
-         - `500 Internal Server Error`: If there is an error during registration.
+### `GET /streams`
 
-      ### `GET /streams`
+Serves HLS streams with CORS headers.
 
-      Serves HLS streams with CORS headers.
+- **Responses:**
+- `200 OK`: Returns the requested stream.
+- `404 Not Found`: If the stream is not found.
 
-      - **Responses:**
-         - `200 OK`: Returns the requested stream.
-         - `404 Not Found`: If the stream is not found.
+### `GET *`
 
-      ### `GET *`
+Serves a 404 Not Found page for any unspecified routes.
 
-      Serves a 404 Not Found page for any unspecified routes.
+- **Responses:**
+- `404 Not Found`: If the route is not found.
 
-      - **Responses:**
-         - `404 Not Found`: If the route is not found.
+## Socket.io Events
 
-      ## Socket.io Events
+### `connection`
 
-      ### `connection`
+Handles a new client connection.
 
-      Handles a new client connection.
+### `loadCameras`
 
-      ### `loadCameras`
+Loads cameras for the authenticated user.
 
-      Loads cameras for the authenticated user.
+- **Callback:**
+- `cameras`: A list of cameras for the authenticated user.
 
-      - **Callback:**
-         - `cameras`: A list of cameras for the authenticated user.
+### `addCamera`
 
-      ### `addCamera`
+Adds a new camera for the authenticated user.
 
-      Adds a new camera for the authenticated user.
+- **Parameters:**
+- `name`: The name of the camera.
+- `rtspUrl`: The RTSP URL of the camera.
+- **Callback:**
+- `success`: Indicates if the camera was added successfully.
+- `camera`: The added camera.
 
-      - **Parameters:**
-         - `name`: The name of the camera.
-         - `rtspUrl`: The RTSP URL of the camera.
-      - **Callback:**
-         - `success`: Indicates if the camera was added successfully.
-         - `camera`: The added camera.
+### `startStream`
 
-      ### `startStream`
+Starts streaming for a specified camera.
 
-      Starts streaming for a specified camera.
+- **Parameters:**
+- `cameraId`: The ID of the camera to start streaming.
+- **Callback:**
+- `success`: Indicates if the stream was started successfully.
+- `streamUrl`: The URL of the HLS stream.
+- `error`: If the camera is not found or not authorized.
 
-      - **Parameters:**
-         - `cameraId`: The ID of the camera to start streaming.
-      - **Callback:**
-         - `success`: Indicates if the stream was started successfully.
-         - `streamUrl`: The URL of the HLS stream.
-         - `error`: If the camera is not found or not authorized.
+### `stopStream`
 
-      ### `stopStream`
+Stops streaming for a specified camera.
 
-      Stops streaming for a specified camera.
-
-      - **Parameters:**
-         - `cameraId`: The ID of the camera to stop streaming.
-      - **Callback:**
-         - `success`: Indicates if the stream was stopped successfully.
-         - `error`: If the camera is not found or not authorized.
-
+- **Parameters:**
+- `cameraId`: The ID of the camera to stop streaming.
+- **Callback:**
+- `success`: Indicates if the stream was stopped successfully.
+- `error`: If the camera is not found or not authorized.
 ## Usage
 
 1. **Start the Server**: Run the server using `node server.js`.
