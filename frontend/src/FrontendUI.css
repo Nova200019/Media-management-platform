@@ -1,0 +1,123 @@
+/* General Styles */
+body {
+    margin: 0;
+    font-family: 'Roboto', sans-serif;
+    overflow-x: hidden;
+    transition: background-color 0.3s ease, background-image 0.3s ease-in-out;
+}
+
+.frontend-ui {
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+background: var(--background-color) no-repeat center center fixed;
+background-size: cover;
+transition: background 0.3s;
+}
+
+/* Light and Dark Mode */
+:root {
+--background-light: url('./../public/images/light-bg.jpg');
+--background-dark: url('./../public/images/dark-bg.jpg');
+--background-color: var(--background-light);
+}
+
+body.dark-mode {
+--background-color: var(--background-dark);
+}
+
+/* Navbar */
+.navbar {
+background-color: #282c34;
+color: white;
+display: flex;
+justify-content: center;
+align-items: center;
+padding: 1rem 2rem;
+position: sticky;
+top: 0;
+z-index: 1000;
+}
+
+.navbar ul {
+list-style: none;
+display: flex;
+gap: 2rem;
+margin: 0 auto;
+}
+
+.navbar li {
+cursor: pointer;
+font-weight: bold;
+}
+
+.navbar li:hover {
+color: #61dafb;
+}
+
+.active-tab {
+color: #61dafb;
+border-bottom: 2px solid #61dafb;
+}
+
+/* Logout and Theme Toggle */
+.logout,
+.theme-toggle {
+margin-left: auto;
+padding: 0.5rem 1rem;
+border: none;
+border-radius: 5px;
+cursor: pointer;
+background-color: #61dafb;
+color: #282c34;
+font-weight: bold;
+}
+
+.theme-toggle {
+margin-left: 1rem;
+background-color: #282c34;
+color: white;
+}
+
+/* Buttons hover effect */
+.logout:hover,
+.theme-toggle:hover {
+background-color: #4eb1e3;
+color: #282c34;
+}
+  
+/* Parallax Background */
+.parallax-container {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 100vh;
+    background: var(--background-color) no-repeat center center fixed;
+    background-size: cover;
+    transform: translate3d(0, 0, 0); /* GPU acceleration for smooth parallax */
+}
+
+.parallax-layer {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+transform: translate3d(0, 0, 0);
+pointer-events: none;
+}
+
+.parallax-layer.bg {
+background: var(--background-color); /* Use the light or dark mode backgrounds */
+z-index: -1;
+transition: background 0.3s ease;
+}
+
+/* Ensure smooth transitions for background changes */
+body.dark-mode .parallax-layer.bg {
+background: var(--background-dark);
+}
+
+body:not(.dark-mode) .parallax-layer.bg {
+background: var(--background-light);
+}

@@ -1,0 +1,31 @@
+.event-logs-container {
+    padding: 20px;
+  }
+  
+  .event-logs-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 auto;
+  }
+  
+  .logs-table th,
+  .logs-table td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: left;
+  }
+  
+  .logs-table th {
+    background-color: #f4f4f4;
+  }
+  
+  .logs-table tbody tr:hover {
+    background-color: #f9f9f9;
+  }
+  

@@ -1,0 +1,23 @@
+/* Dashboard.css */
+.dashboard {
+  padding: 20px;
+}
+
+.camera-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.camera-card {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  background-color: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.camera-card:hover {
+  transform: translateY(-5px);
+  transition: transform 0.2s ease;
+}

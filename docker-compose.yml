@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/mediasoup
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=yourpassword
+      - MYSQL_DATABASE=user_management
+      - STREAM_BASE_URL=http://localhost:3000
+      - STREAM_VOLUME_PATH=/video-storage
+      - JWT_SECRET=s3cUr3!t0k3n#s3cr3t@1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ
+    volumes:
+      - video-storage:/video-storage
+    depends_on:
+       mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:4.2
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+
+  mysql:
+    image: mysql:5.7
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: yourpassword
+      MYSQL_DATABASE: user_management
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pyourpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: react_frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    environment:
+      - REACT_APP_API_URL=http://app:3000 # Point to the backend service name
+    networks:
+      - app-network
+
+volumes:
+  mongo-data:
+  mysql-data:
+  video-storage:
+    driver: local
+
+networks:
+  app-network:
